@@ -1,11 +1,22 @@
+from __future__ import annotations
+
 import logging
-from openai import AsyncOpenAI, APIError
 import re
+
+try:
+    from openai import AsyncOpenAI, APIError  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    AsyncOpenAI = None  # type: ignore[misc,assignment]
+
+    class APIError(Exception):  # type: ignore[no-redef]
+        pass
 
 from .config import settings
 import asyncio
 import random
 import json
+import time
+from collections import deque
 
 # --- Logging ---
 logger = logging.getLogger(__name__)
@@ -28,9 +39,58 @@ class UserConcurrencyLimitExceeded(Exception):
     """用户并发请求超限异常"""
     pass
 
+# --- 全局图片生成频率限制（所有用户共享）---
+# 每 10 分钟最多生成 10 张图（默认值可通过 settings 覆盖）。
+_global_image_gen_lock = asyncio.Lock()
+_global_image_gen_timestamps: deque[float] = deque()
+_time_now = time.monotonic  # overridable for tests
+
+
+class GlobalImageRateLimitExceeded(Exception):
+    """全局图片生成频率限制异常（所有用户共享）"""
+
+    def __init__(self, retry_after_seconds: float | None = None):
+        super().__init__("全局图片生成频率已达上限")
+        self.retry_after_seconds = retry_after_seconds
+
+
+async def _try_acquire_global_image_quota(count: int = 1) -> tuple[bool, float | None]:
+    """
+    尝试占用全局图片生成配额（滑动窗口）。
+
+    Returns:
+        (ok, retry_after_seconds)
+    """
+    if count <= 0:
+        return True, None
+
+    window_seconds = max(1, int(settings.IMAGE_GEN_GLOBAL_WINDOW_SECONDS))
+    limit = max(1, int(settings.IMAGE_GEN_GLOBAL_LIMIT))
+    now = _time_now()
+
+    async with _global_image_gen_lock:
+        # 清理窗口外的记录
+        while _global_image_gen_timestamps and (now - _global_image_gen_timestamps[0]) > window_seconds:
+            _global_image_gen_timestamps.popleft()
+
+        if len(_global_image_gen_timestamps) + count > limit:
+            # 计算下一次可用的时间点（基于窗口内最早的一张）
+            if _global_image_gen_timestamps:
+                oldest = _global_image_gen_timestamps[0]
+                retry_after = max(0.0, window_seconds - (now - oldest))
+            else:
+                retry_after = float(window_seconds)
+            return False, retry_after
+
+        for _ in range(count):
+            _global_image_gen_timestamps.append(now)
+        return True, None
+
 # --- Client Initialization ---
 client: AsyncOpenAI | None = None
-if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "your_openai_api_key_here":
+if AsyncOpenAI is None:
+    logger.warning("未安装 openai 依赖，OpenAI 客户端不可用。")
+elif settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "your_openai_api_key_here":
     try:
         client = AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY,
@@ -45,7 +105,9 @@ else:
 
 # --- Image Generation Client ---
 image_client: AsyncOpenAI | None = None
-if settings.IMAGE_GEN_MODEL:
+if AsyncOpenAI is None:
+    image_client = None
+elif settings.IMAGE_GEN_MODEL:
     try:
         image_api_key = settings.IMAGE_GEN_API_KEY or settings.OPENAI_API_KEY
         image_base_url = settings.IMAGE_GEN_BASE_URL or settings.OPENAI_BASE_URL
@@ -246,6 +308,15 @@ async def generate_image(scene_prompt: str, user_id: str | None = None) -> str |
 
 async def _generate_image_impl(scene_prompt: str) -> str | None:
     """实际执行图片生成的内部函数"""
+    ok, retry_after = await _try_acquire_global_image_quota(1)
+    if not ok:
+        logger.warning(
+            "全局图片生成频率已达上限：%s 秒后再试（窗口=%ss, 上限=%s）",
+            round(retry_after or 0.0, 2),
+            settings.IMAGE_GEN_GLOBAL_WINDOW_SECONDS,
+            settings.IMAGE_GEN_GLOBAL_LIMIT,
+        )
+        return None
     
     # 构建图片生成的提示词，使用XML标签包裹输入内容
     image_prompt = f"""根据以下场景生成一张插画：

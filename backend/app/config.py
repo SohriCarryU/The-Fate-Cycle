@@ -1,4 +1,8 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    BaseSettings = object  # type: ignore
+    SettingsConfigDict = dict  # type: ignore
 
 class Settings(BaseSettings):
     # OpenAI API Settings
@@ -12,6 +16,10 @@ class Settings(BaseSettings):
     IMAGE_GEN_BASE_URL: str | None = None  # 图片生成API地址，为空则使用 OPENAI_BASE_URL
     IMAGE_GEN_API_KEY: str | None = None  # 图片生成API密钥，为空则使用 OPENAI_API_KEY
     IMAGE_GEN_IDLE_SECONDS: int = 10  # 状态静止多少秒后触发图片生成
+    # Global image generation rate limit (across all users)
+    # Default: at most 10 images per 10 minutes.
+    IMAGE_GEN_GLOBAL_LIMIT: int = 10
+    IMAGE_GEN_GLOBAL_WINDOW_SECONDS: int = 10 * 60
 
     # JWT Settings for OAuth2
     SECRET_KEY: str
