@@ -109,6 +109,24 @@
 
                     <div class="panel">
                         <h3>Player List</h3>
+                        <div class="players-toolbar" aria-label="Player list filters">
+                            <label class="filter-control" for="players-filter">
+                                <span>Search</span>
+                                <input id="players-filter" type="search" placeholder="ID, status, chapter, source" autocomplete="off">
+                            </label>
+                            <label class="filter-control" for="players-activity-filter">
+                                <span>Activity</span>
+                                <select id="players-activity-filter">
+                                    <option value="all">All players</option>
+                                    <option value="active-24h">Active 24h</option>
+                                    <option value="active-7d">Active 7d</option>
+                                    <option value="inactive">Inactive 7d</option>
+                                    <option value="unknown">Unknown activity</option>
+                                </select>
+                            </label>
+                            <button id="players-clear-filters-button" class="secondary" type="button">Clear</button>
+                            <span id="players-filter-count" class="filter-count">No players loaded</span>
+                        </div>
                         <div id="players-list" class="players-list"></div>
                         <div id="players-empty" class="empty-state hidden">No players found</div>
                     </div>
@@ -255,6 +273,7 @@
                             <button id="reload-config-button" type="button">Reload</button>
                             <button id="validate-config-button" type="button">Validate</button>
                             <button id="save-config-button" type="button">Save</button>
+                            <span id="runtime-dirty-indicator" class="dirty-indicator hidden">Unsaved changes</span>
                         </div>
                         <p id="runtime-message" class="message"></p>
                         <pre id="runtime-result" class="result-box"></pre>
@@ -294,6 +313,7 @@
                                     <button id="save-prompt-button" type="button">Save Override</button>
                                     <button id="reset-prompt-button" type="button" class="secondary">Reset to Default</button>
                                     <button id="delete-prompt-button" class="danger" type="button">Delete Override</button>
+                                    <span id="prompt-dirty-indicator" class="dirty-indicator hidden">Unsaved changes</span>
                                 </div>
                                 <p id="prompt-message" class="message"></p>
                             </div>

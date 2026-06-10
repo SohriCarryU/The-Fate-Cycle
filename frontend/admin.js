@@ -8,7 +8,18 @@ const state = {
     activeSection: "dashboard",
     loadedPromptContent: "",
     hasUnsavedPromptChanges: false,
+    selectedPromptHasOverride: false,
     runtimeConfigMode: "form",
+    loadedRuntimeConfigText: "",
+    hasUnsavedRuntimeChanges: false,
+    runtimeActionsBusy: false,
+    runtimeFeatureFlags: {
+        cheat_check_enabled: null,
+        image_generation_enabled: null,
+        live_view_enabled: null,
+        redemption_enabled: null,
+    },
+    players: [],
 };
 
 const el = {
@@ -48,6 +59,7 @@ const el = {
     reloadConfigButton: document.getElementById("reload-config-button"),
     validateConfigButton: document.getElementById("validate-config-button"),
     saveConfigButton: document.getElementById("save-config-button"),
+    runtimeDirtyIndicator: document.getElementById("runtime-dirty-indicator"),
     runtimeMessage: document.getElementById("runtime-message"),
     runtimeResult: document.getElementById("runtime-result"),
     restartPolicy: document.getElementById("restart-policy"),
@@ -79,6 +91,7 @@ const el = {
     savePromptButton: document.getElementById("save-prompt-button"),
     resetPromptButton: document.getElementById("reset-prompt-button"),
     deletePromptButton: document.getElementById("delete-prompt-button"),
+    promptDirtyIndicator: document.getElementById("prompt-dirty-indicator"),
     promptMessage: document.getElementById("prompt-message"),
     dashLlmStatus: document.getElementById("dash-llm-status"),
     dashLlmDetails: document.getElementById("dash-llm-details"),
@@ -99,6 +112,10 @@ const el = {
     active7d: document.getElementById("active-7d"),
     playersList: document.getElementById("players-list"),
     playersEmpty: document.getElementById("players-empty"),
+    playersFilter: document.getElementById("players-filter"),
+    playersActivityFilter: document.getElementById("players-activity-filter"),
+    playersClearFiltersButton: document.getElementById("players-clear-filters-button"),
+    playersFilterCount: document.getElementById("players-filter-count"),
     playersWarnings: document.getElementById("players-warnings"),
     playersWarningsPanel: document.getElementById("players-warnings-panel"),
     systemRefreshButton: document.getElementById("system-refresh-button"),
@@ -138,6 +155,13 @@ function setAuthenticated(authenticated, adminEnabled = state.adminEnabled) {
 }
 
 function switchSection(sectionName) {
+    if (
+        state.activeSection === "runtime-config"
+        && sectionName !== "runtime-config"
+        && !confirmDiscardRuntimeChanges("You have unsaved runtime config changes. Leave this section without saving?")
+    ) {
+        return;
+    }
     state.activeSection = sectionName;
     document.querySelectorAll(".nav-item").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.section === sectionName);
@@ -193,10 +217,39 @@ function renderJson(element, data) {
     element.textContent = JSON.stringify(data, null, 2);
 }
 
+function appendLabeledRow(container, label, value) {
+    const row = document.createElement("p");
+    const labelElement = document.createElement("strong");
+    labelElement.textContent = `${label}:`;
+    row.append(labelElement, " ");
+    if (value && typeof value === "object" && typeof value.appendChild === "function") {
+        row.appendChild(value);
+    } else {
+        row.append(String(value ?? ""));
+    }
+    container.appendChild(row);
+}
+
+function renderDetailRows(element, rows) {
+    element.textContent = "";
+    rows.forEach(([label, value]) => appendLabeledRow(element, label, value));
+}
+
 function setRuntimeActionsDisabled(disabled) {
+    state.runtimeActionsBusy = disabled;
     el.reloadConfigButton.disabled = disabled;
     el.validateConfigButton.disabled = disabled;
-    el.saveConfigButton.disabled = disabled;
+    el.saveConfigButton.disabled = disabled || !state.hasUnsavedRuntimeChanges;
+}
+
+function setLlmConfigActionsDisabled(disabled) {
+    el.llmConfigLoadButton.disabled = disabled;
+    el.llmConfigSaveButton.disabled = disabled;
+    el.llmConfigTestButton.disabled = disabled;
+}
+
+function setLlmTestActionsDisabled(disabled) {
+    el.llmTestButton.disabled = disabled;
 }
 
 function getRuntimeEditorConfig() {
@@ -205,6 +258,49 @@ function getRuntimeEditorConfig() {
         el.runtimeConfigText.value = JSON.stringify(config, null, 2);
     }
     return parseRuntimeConfigText();
+}
+
+function getRuntimeEditorText() {
+    if (state.runtimeConfigMode === "form") {
+        return JSON.stringify(buildConfigFromForm(), null, 2);
+    }
+    return el.runtimeConfigText.value;
+}
+
+function setRuntimeDirtyState(hasChanges) {
+    state.hasUnsavedRuntimeChanges = hasChanges;
+    el.saveConfigButton.disabled = state.runtimeActionsBusy || !hasChanges;
+    if (el.runtimeDirtyIndicator) {
+        el.runtimeDirtyIndicator.classList.toggle("hidden", !hasChanges);
+    }
+}
+
+function updateRuntimeDirtyState() {
+    if (!state.loadedRuntimeConfigText) {
+        setRuntimeDirtyState(false);
+        return;
+    }
+    setRuntimeDirtyState(getRuntimeEditorText() !== state.loadedRuntimeConfigText);
+}
+
+function markRuntimeConfigClean(config) {
+    state.loadedRuntimeConfigText = JSON.stringify(config, null, 2);
+    setRuntimeDirtyState(false);
+}
+
+function confirmDiscardRuntimeChanges(message) {
+    if (!state.hasUnsavedRuntimeChanges) return true;
+    return window.confirm(message);
+}
+
+function hasUnsavedAdminChanges() {
+    return state.hasUnsavedPromptChanges || state.hasUnsavedRuntimeChanges;
+}
+
+function warnBeforeUnload(event) {
+    if (!hasUnsavedAdminChanges()) return;
+    event.preventDefault();
+    event.returnValue = "";
 }
 
 async function checkStatus() {
@@ -248,6 +344,9 @@ async function logout() {
 }
 
 async function loadRuntimeConfig() {
+    if (!confirmDiscardRuntimeChanges("Reload runtime config and discard unsaved changes?")) {
+        return;
+    }
     setRuntimeActionsDisabled(true);
     setMessage(el.runtimeMessage, "Loading runtime config...");
     try {
@@ -256,6 +355,7 @@ async function loadRuntimeConfig() {
         el.runtimeExists.textContent = String(data.exists);
         el.runtimeConfigText.value = JSON.stringify(data.config, null, 2);
         loadRuntimeConfigForm(data.config);
+        markRuntimeConfigClean(data.config);
         el.runtimeResult.textContent = "";
         setMessage(el.runtimeMessage, "Runtime config loaded.", "success");
     } catch (error) {
@@ -272,10 +372,10 @@ function loadRuntimeConfigForm(config) {
     el.formImageGenIdleSeconds.value = config.image_generation?.image_gen_idle_seconds || "";
     el.formImageGenGlobalLimit.value = config.image_generation?.image_gen_global_limit || "";
     el.formImageGenGlobalWindowSeconds.value = config.image_generation?.image_gen_global_window_seconds || "";
-    el.formCheatCheckEnabled.checked = config.feature_flags?.cheat_check_enabled || false;
-    el.formImageGenerationEnabled.checked = config.feature_flags?.image_generation_enabled || false;
-    el.formLiveViewEnabled.checked = config.feature_flags?.live_view_enabled || false;
-    el.formRedemptionEnabled.checked = config.feature_flags?.redemption_enabled || false;
+    setRuntimeFeatureFlagValue("cheat_check_enabled", config.feature_flags?.cheat_check_enabled ?? null);
+    setRuntimeFeatureFlagValue("image_generation_enabled", config.feature_flags?.image_generation_enabled ?? null);
+    setRuntimeFeatureFlagValue("live_view_enabled", config.feature_flags?.live_view_enabled ?? null);
+    setRuntimeFeatureFlagValue("redemption_enabled", config.feature_flags?.redemption_enabled ?? null);
     el.formGameTitle.value = config.world_style?.game_title || "";
     el.formGmIdentity.value = config.world_style?.gm_identity || "";
     el.formWorldGenre.value = config.world_style?.world_genre || "";
@@ -299,10 +399,10 @@ function buildConfigFromForm() {
             image_gen_global_window_seconds: el.formImageGenGlobalWindowSeconds.value ? parseInt(el.formImageGenGlobalWindowSeconds.value, 10) : null,
         },
         feature_flags: {
-            cheat_check_enabled: el.formCheatCheckEnabled.checked,
-            image_generation_enabled: el.formImageGenerationEnabled.checked,
-            live_view_enabled: el.formLiveViewEnabled.checked,
-            redemption_enabled: el.formRedemptionEnabled.checked,
+            cheat_check_enabled: state.runtimeFeatureFlags.cheat_check_enabled,
+            image_generation_enabled: state.runtimeFeatureFlags.image_generation_enabled,
+            live_view_enabled: state.runtimeFeatureFlags.live_view_enabled,
+            redemption_enabled: state.runtimeFeatureFlags.redemption_enabled,
         },
         world_style: {
             game_title: el.formGameTitle.value.trim() || null,
@@ -317,6 +417,48 @@ function buildConfigFromForm() {
     };
 }
 
+function getRuntimeFeatureFlagFields() {
+    return [
+        ["cheat_check_enabled", el.formCheatCheckEnabled],
+        ["image_generation_enabled", el.formImageGenerationEnabled],
+        ["live_view_enabled", el.formLiveViewEnabled],
+        ["redemption_enabled", el.formRedemptionEnabled],
+    ];
+}
+
+function setRuntimeFeatureFlagValue(name, value) {
+    const field = getRuntimeFeatureFlagFields().find(([fieldName]) => fieldName === name)?.[1];
+    const normalizedValue = value === true ? true : value === false ? false : null;
+    state.runtimeFeatureFlags[name] = normalizedValue;
+    if (!field) return;
+    field.checked = normalizedValue === true;
+    field.indeterminate = normalizedValue === null;
+}
+
+function syncRuntimeFeatureFlagFromInput(fieldName, field) {
+    state.runtimeFeatureFlags[fieldName] = field.checked;
+    field.indeterminate = false;
+}
+
+function getRuntimeFormFields() {
+    return [
+        el.formOpenaiModel,
+        el.formOpenaiModelCheatCheck,
+        el.formImageGenModel,
+        el.formImageGenIdleSeconds,
+        el.formImageGenGlobalLimit,
+        el.formImageGenGlobalWindowSeconds,
+        el.formGameTitle,
+        el.formGmIdentity,
+        el.formWorldGenre,
+        el.formResourceName,
+        el.formOpportunityName,
+        el.formCycleName,
+        el.formEndActionName,
+        el.formTone,
+    ];
+}
+
 function switchToFormMode() {
     try {
         const config = parseRuntimeConfigText();
@@ -326,6 +468,7 @@ function switchToFormMode() {
         el.runtimeJsonPanel.classList.add("hidden");
         el.runtimeFormModeButton.classList.add("active");
         el.runtimeJsonModeButton.classList.remove("active");
+        updateRuntimeDirtyState();
     } catch (error) {
         setMessage(el.runtimeMessage, `Cannot switch to form mode: ${error.message}`, "error");
     }
@@ -339,6 +482,7 @@ function switchToJsonMode() {
     el.runtimeJsonPanel.classList.remove("hidden");
     el.runtimeFormModeButton.classList.remove("active");
     el.runtimeJsonModeButton.classList.add("active");
+    updateRuntimeDirtyState();
 }
 
 async function validateRuntimeConfig() {
@@ -372,6 +516,7 @@ async function saveRuntimeConfig() {
         });
         el.runtimeConfigText.value = JSON.stringify(result.config, null, 2);
         loadRuntimeConfigForm(result.config);
+        markRuntimeConfigClean(result.config);
         renderJson(el.runtimeResult, result);
         setMessage(el.runtimeMessage, "Runtime config saved.", "success");
     } catch (error) {
@@ -411,6 +556,7 @@ async function loadRestartPolicy() {
 }
 
 async function testLlm() {
+    setLlmTestActionsDisabled(true);
     setMessage(el.llmMessageOutput, "Testing LLM...");
     el.llmResult.textContent = "";
     try {
@@ -432,6 +578,8 @@ async function testLlm() {
         );
     } catch (error) {
         setMessage(el.llmMessageOutput, error.message, "error");
+    } finally {
+        setLlmTestActionsDisabled(false);
     }
 }
 
@@ -473,6 +621,7 @@ async function loadPrompt(filename) {
         el.promptEffective.value = data.effective.content || "";
         state.loadedPromptContent = el.promptOverride.value;
         state.hasUnsavedPromptChanges = false;
+        state.selectedPromptHasOverride = data.override.exists;
         updatePromptButtons(data.override.exists);
         await loadPromptList();
         setMessage(el.promptMessage, "Prompt loaded.", "success");
@@ -481,11 +630,15 @@ async function loadPrompt(filename) {
     }
 }
 
-function updatePromptButtons(hasOverride) {
+function updatePromptButtons(hasOverride = state.selectedPromptHasOverride) {
+    state.selectedPromptHasOverride = Boolean(hasOverride);
     const hasSelection = Boolean(state.selectedPrompt);
-    el.savePromptButton.disabled = !hasSelection;
-    el.resetPromptButton.disabled = !hasSelection || !hasOverride;
-    el.deletePromptButton.disabled = !hasSelection || !hasOverride;
+    el.savePromptButton.disabled = !hasSelection || !state.hasUnsavedPromptChanges;
+    el.resetPromptButton.disabled = !hasSelection || !state.selectedPromptHasOverride;
+    el.deletePromptButton.disabled = !hasSelection || !state.selectedPromptHasOverride;
+    if (el.promptDirtyIndicator) {
+        el.promptDirtyIndicator.classList.toggle("hidden", !state.hasUnsavedPromptChanges);
+    }
 }
 
 function validatePromptContent(content) {
@@ -517,7 +670,7 @@ async function savePromptOverride() {
         await loadPrompt(state.selectedPrompt);
     } catch (error) {
         setMessage(el.promptMessage, error.message, "error");
-        el.savePromptButton.disabled = false;
+        updatePromptButtons();
     }
 }
 
@@ -538,8 +691,7 @@ async function resetPromptOverride() {
         await loadPrompt(state.selectedPrompt);
     } catch (error) {
         setMessage(el.promptMessage, error.message, "error");
-        el.resetPromptButton.disabled = false;
-        el.deletePromptButton.disabled = false;
+        updatePromptButtons();
     }
 }
 
@@ -560,8 +712,7 @@ async function deletePromptOverride() {
         await loadPrompt(state.selectedPrompt);
     } catch (error) {
         setMessage(el.promptMessage, error.message, "error");
-        el.deletePromptButton.disabled = false;
-        el.resetPromptButton.disabled = false;
+        updatePromptButtons();
     }
 }
 
@@ -575,7 +726,11 @@ async function loadDashboard() {
         const llmData = await api("/llm-config");
         el.dashLlmStatus.textContent = llmData.api_key_configured ? "✓ Configured" : "⚠ Not configured";
         el.dashLlmStatus.className = llmData.api_key_configured ? "card-status status-ok" : "card-status status-warning";
-        el.dashLlmDetails.innerHTML = `<p><strong>Main:</strong> ${llmData.main_model || "(not set)"}</p><p><strong>Cheat Check:</strong> ${llmData.cheat_check_model || "(not set)"}</p><p><strong>Source:</strong> ${llmData.source}</p>`;
+        renderDetailRows(el.dashLlmDetails, [
+            ["Main", llmData.main_model || "(not set)"],
+            ["Cheat Check", llmData.cheat_check_model || "(not set)"],
+            ["Source", llmData.source],
+        ]);
     } catch (error) {
         el.dashLlmStatus.textContent = "✗ Error";
         el.dashLlmStatus.className = "card-status status-error";
@@ -586,7 +741,10 @@ async function loadDashboard() {
         const runtimeData = await api("/runtime-config");
         el.dashRuntimeStatus.textContent = runtimeData.exists ? "✓ Available" : "⚠ Missing";
         el.dashRuntimeStatus.className = runtimeData.exists ? "card-status status-ok" : "card-status status-warning";
-        el.dashRuntimeDetails.innerHTML = `<p><strong>Source:</strong> ${runtimeData.source}</p><p><strong>Exists:</strong> ${runtimeData.exists}</p>`;
+        renderDetailRows(el.dashRuntimeDetails, [
+            ["Source", runtimeData.source],
+            ["Exists", runtimeData.exists],
+        ]);
     } catch (error) {
         el.dashRuntimeStatus.textContent = "✗ Error";
         el.dashRuntimeStatus.className = "card-status status-error";
@@ -604,7 +762,10 @@ async function loadDashboard() {
         } else {
             el.dashPromptsStatus.textContent = `${total} ${total === 1 ? 'prompt' : 'prompts'}`;
             el.dashPromptsStatus.className = "card-status status-ok";
-            el.dashPromptsDetails.innerHTML = `<p><strong>Total:</strong> ${total}</p><p><strong>Overrides:</strong> ${overrides}</p>`;
+            renderDetailRows(el.dashPromptsDetails, [
+                ["Total", total],
+                ["Overrides", overrides],
+            ]);
         }
     } catch (error) {
         el.dashPromptsStatus.textContent = "✗ Error";
@@ -620,7 +781,11 @@ async function loadDashboard() {
             const active24h = playersData.summary.active_recent_24h;
             el.dashPlayersStatus.textContent = `${playerCount} ${playerCount === 1 ? 'player' : 'players'}`;
             el.dashPlayersStatus.className = "card-status status-ok";
-            el.dashPlayersDetails.innerHTML = `<p><strong>Sessions:</strong> ${sessionCount}</p><p><strong>Active 24h:</strong> ${active24h}</p><p><strong>Active 7d:</strong> ${playersData.summary.active_recent_7d}</p>`;
+            renderDetailRows(el.dashPlayersDetails, [
+                ["Sessions", sessionCount],
+                ["Active 24h", active24h],
+                ["Active 7d", playersData.summary.active_recent_7d],
+            ]);
         } catch (error) {
             el.dashPlayersStatus.textContent = "✗ Error";
             el.dashPlayersStatus.className = "card-status status-error";
@@ -636,7 +801,11 @@ async function loadDashboard() {
             const hasWarnings = systemData.warnings.length > 0;
             el.dashSystemStatus.textContent = dbOk && envOk && !hasWarnings ? "✓ Healthy" : "⚠ Check status";
             el.dashSystemStatus.className = dbOk && envOk && !hasWarnings ? "card-status status-ok" : "card-status status-warning";
-            el.dashSystemDetails.innerHTML = `<p><strong>Database:</strong> ${dbOk ? "connected" : "not connected"}</p><p><strong>Env File:</strong> ${envOk ? "exists" : "missing"}</p><p><strong>Sessions:</strong> ${systemData.counts.sessions}</p>`;
+            renderDetailRows(el.dashSystemDetails, [
+                ["Database", dbOk ? "connected" : "not connected"],
+                ["Env File", envOk ? "exists" : "missing"],
+                ["Sessions", systemData.counts.sessions],
+            ]);
         } catch (error) {
             el.dashSystemStatus.textContent = "✗ Error";
             el.dashSystemStatus.className = "card-status status-error";
@@ -646,6 +815,7 @@ async function loadDashboard() {
 }
 
 async function loadLlmConfig() {
+    setLlmConfigActionsDisabled(true);
     setMessage(el.llmConfigMessage, "Loading LLM config...");
     try {
         const data = await api("/llm-config");
@@ -653,6 +823,8 @@ async function loadLlmConfig() {
         setMessage(el.llmConfigMessage, `Loaded (source: ${data.source}).`, "success");
     } catch (error) {
         setMessage(el.llmConfigMessage, error.message, "error");
+    } finally {
+        setLlmConfigActionsDisabled(false);
     }
 }
 
@@ -681,6 +853,7 @@ async function saveLlmConfig() {
     if (clearKey && !confirm("Clear the stored API key? The key cannot be recovered.")) {
         return;
     }
+    setLlmConfigActionsDisabled(true);
     try {
         const body = {
             base_url: el.llmConfigBaseUrl.value.trim() || null,
@@ -699,10 +872,13 @@ async function saveLlmConfig() {
         setMessage(el.llmConfigMessage, "LLM config saved.", "success");
     } catch (error) {
         setMessage(el.llmConfigMessage, error.message, "error");
+    } finally {
+        setLlmConfigActionsDisabled(false);
     }
 }
 
 async function testLlmFromConfig() {
+    setLlmConfigActionsDisabled(true);
     setMessage(el.llmConfigMessage, "Testing LLM connection...");
     el.llmConfigResult.textContent = "";
     el.llmConfigResult.classList.add("hidden");
@@ -720,114 +896,252 @@ async function testLlmFromConfig() {
         );
     } catch (error) {
         setMessage(el.llmConfigMessage, error.message, "error");
+    } finally {
+        setLlmConfigActionsDisabled(false);
     }
 }
 
 async function loadSystemStatus() {
+    if (el.systemRefreshButton) el.systemRefreshButton.disabled = true;
     setMessage(el.systemMessage, "Loading system status...");
     try {
         const data = await api("/system/status");
-        
-        el.systemApp.innerHTML = `
-            <p><strong>Admin Enabled:</strong> ${data.app.admin_enabled ? "Yes" : "No"}</p>
-            <p><strong>Environment:</strong> ${data.app.environment}</p>
-            <p><strong>Python:</strong> ${data.app.python_version}</p>
-            <p><strong>Platform:</strong> ${data.app.platform}</p>
-            <p><strong>Working Dir:</strong> ${data.app.cwd}</p>
-        `;
-        
-        el.systemEnv.innerHTML = `
-            <p><strong>.env File:</strong> ${_statusBadge(data.env.env_file_exists)}</p>
-            <p><strong>SECRET_KEY:</strong> ${_statusBadge(data.env.secret_key_configured)}</p>
-            <p><strong>ADMIN_PASSWORD:</strong> ${_statusBadge(data.env.admin_password_configured)}</p>
-            <p><strong>DATABASE_URL:</strong> ${_statusBadge(data.env.database_url_configured)}</p>
-            <p><strong>OPENAI_API_KEY:</strong> ${_statusBadge(data.env.openai_api_key_configured)}</p>
-            <p><strong>OPENAI_BASE_URL:</strong> ${_statusBadge(data.env.openai_base_url_configured)}</p>
-        `;
-        
-        el.systemDatabase.innerHTML = `
-            <p><strong>Type:</strong> ${data.database.type}</p>
-            <p><strong>Configured:</strong> ${_statusBadge(data.database.configured)}</p>
-            <p><strong>Connected:</strong> ${_statusBadge(data.database.connected)}</p>
-            <p><strong>Detail:</strong> ${data.database.detail}</p>
-        `;
-        
-        el.systemGameData.innerHTML = `
-            <p><strong>Root:</strong> ${_statusBadge(data.game_data.exists)}</p>
-            <p><strong>Config Dir:</strong> ${_statusBadge(data.game_data.config_dir_exists)}</p>
-            <p><strong>Runtime Config:</strong> ${_statusBadge(data.game_data.runtime_config_exists)}</p>
-            <p><strong>Prompts Dir:</strong> ${_statusBadge(data.game_data.prompts_dir_exists)}</p>
-            <p><strong>Sessions Dir:</strong> ${_statusBadge(data.game_data.sessions_dir_exists)}</p>
-            <p><strong>Index:</strong> ${_statusBadge(data.game_data.index_exists)}</p>
-            <p><strong>Images Dir:</strong> ${_statusBadge(data.game_data.generated_images_dir_exists)}</p>
-            <p><strong>Secrets Dir:</strong> ${_statusBadge(data.game_data.secrets_dir_exists)}</p>
-            <p><strong>LLM Secret:</strong> ${_statusBadge(data.game_data.llm_secret_exists)}</p>
-        `;
-        
-        el.systemCounts.innerHTML = `
-            <p><strong>Sessions:</strong> ${data.counts.sessions}</p>
-            <p><strong>Prompt Overrides:</strong> ${data.counts.prompt_overrides}</p>
-            <p><strong>Generated Images:</strong> ${data.counts.generated_images}</p>
-        `;
-        
-        if (data.warnings.length > 0) {
-            el.systemWarnings.innerHTML = data.warnings.map(w => `<li>${w}</li>`).join("");
-            el.systemWarningsPanel.classList.remove("hidden");
-        } else {
-            el.systemWarningsPanel.classList.add("hidden");
-        }
+
+        renderDetailRows(el.systemApp, [
+            ["Admin Enabled", data.app.admin_enabled ? "Yes" : "No"],
+            ["Environment", data.app.environment],
+            ["Python", data.app.python_version],
+            ["Platform", data.app.platform],
+            ["Working Dir", data.app.cwd],
+        ]);
+
+        renderDetailRows(el.systemEnv, [
+            [".env File", createStatusBadge(data.env.env_file_exists)],
+            ["SECRET_KEY", createStatusBadge(data.env.secret_key_configured)],
+            ["ADMIN_PASSWORD", createStatusBadge(data.env.admin_password_configured)],
+            ["DATABASE_URL", createStatusBadge(data.env.database_url_configured)],
+            ["OPENAI_API_KEY", createStatusBadge(data.env.openai_api_key_configured)],
+            ["OPENAI_BASE_URL", createStatusBadge(data.env.openai_base_url_configured)],
+        ]);
+
+        renderDetailRows(el.systemDatabase, [
+            ["Type", data.database.type],
+            ["Configured", createStatusBadge(data.database.configured)],
+            ["Connected", createStatusBadge(data.database.connected)],
+            ["Detail", data.database.detail],
+        ]);
+
+        renderDetailRows(el.systemGameData, [
+            ["Root", createStatusBadge(data.game_data.exists)],
+            ["Config Dir", createStatusBadge(data.game_data.config_dir_exists)],
+            ["Runtime Config", createStatusBadge(data.game_data.runtime_config_exists)],
+            ["Prompts Dir", createStatusBadge(data.game_data.prompts_dir_exists)],
+            ["Sessions Dir", createStatusBadge(data.game_data.sessions_dir_exists)],
+            ["Index", createStatusBadge(data.game_data.index_exists)],
+            ["Images Dir", createStatusBadge(data.game_data.generated_images_dir_exists)],
+            ["Secrets Dir", createStatusBadge(data.game_data.secrets_dir_exists)],
+            ["LLM Secret", createStatusBadge(data.game_data.llm_secret_exists)],
+        ]);
+
+        renderDetailRows(el.systemCounts, [
+            ["Sessions", data.counts.sessions],
+            ["Prompt Overrides", data.counts.prompt_overrides],
+            ["Generated Images", data.counts.generated_images],
+        ]);
+
+        renderWarnings(el.systemWarnings, el.systemWarningsPanel, data.warnings || []);
         
         setMessage(el.systemMessage, "System status loaded.", "success");
     } catch (error) {
         setMessage(el.systemMessage, error.message, "error");
+    } finally {
+        if (el.systemRefreshButton) el.systemRefreshButton.disabled = false;
     }
 }
 
-function _statusBadge(value) {
-    if (value === true) return '<span class="status-badge status-ok">✓</span>';
-    if (value === false) return '<span class="status-badge status-error">✗</span>';
-    return '<span class="status-badge status-unknown">?</span>';
+function createStatusBadge(value) {
+    const badge = document.createElement("span");
+    if (value === true) {
+        badge.className = "status-badge status-ok";
+        badge.textContent = "OK";
+    } else if (value === false) {
+        badge.className = "status-badge status-error";
+        badge.textContent = "No";
+    } else {
+        badge.className = "status-badge status-unknown";
+        badge.textContent = "?";
+    }
+    return badge;
+}
+
+function formatPlayerActivity(lastActivity) {
+    if (!lastActivity) return "N/A";
+    const date = new Date(lastActivity);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleString();
+}
+
+function getPlayerActivityAgeMs(player) {
+    if (!player.last_activity) return null;
+    const date = new Date(player.last_activity);
+    if (Number.isNaN(date.getTime())) return null;
+    return Date.now() - date.getTime();
+}
+
+function playerMatchesActivityFilter(player, filterValue) {
+    const ageMs = getPlayerActivityAgeMs(player);
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const sevenDaysMs = 7 * oneDayMs;
+
+    if (filterValue === "active-24h") return ageMs !== null && ageMs < oneDayMs;
+    if (filterValue === "active-7d") return ageMs !== null && ageMs < sevenDaysMs;
+    if (filterValue === "inactive") return ageMs !== null && ageMs >= sevenDaysMs;
+    if (filterValue === "unknown") return ageMs === null;
+    return true;
+}
+
+function playerMatchesSearch(player, query) {
+    if (!query) return true;
+    const values = [
+        player.player_id,
+        player.latest_session_id,
+        player.latest_chapter,
+        player.latest_status,
+        ...(player.data_sources || []),
+    ];
+    return values.some((value) => String(value || "").toLowerCase().includes(query));
+}
+
+function createLabeledText(label, value, className) {
+    const element = document.createElement("div");
+    if (className) element.className = className;
+
+    const labelElement = document.createElement("strong");
+    labelElement.textContent = `${label}:`;
+    element.append(labelElement, ` ${value}`);
+    return element;
+}
+
+function createMetaItem(label, value) {
+    const item = document.createElement("span");
+    const labelElement = document.createElement("strong");
+    labelElement.textContent = `${label}:`;
+    item.append(labelElement, ` ${value}`);
+    return item;
+}
+
+function updatePlayersFilterCount(visibleCount, totalCount) {
+    if (!el.playersFilterCount) return;
+    if (totalCount === 0) {
+        el.playersFilterCount.textContent = "No players loaded";
+    } else if (visibleCount === totalCount) {
+        el.playersFilterCount.textContent = `Showing all ${totalCount} ${totalCount === 1 ? "player" : "players"}`;
+    } else {
+        el.playersFilterCount.textContent = `Showing ${visibleCount} of ${totalCount} players`;
+    }
+}
+
+function renderPlayersList(players, totalCount) {
+    el.playersList.textContent = "";
+
+    if (totalCount === 0) {
+        el.playersEmpty.textContent = "No players found";
+        el.playersEmpty.classList.remove("hidden");
+        updatePlayersFilterCount(0, 0);
+        return;
+    }
+
+    if (players.length === 0) {
+        el.playersEmpty.textContent = "No players match the current filters";
+        el.playersEmpty.classList.remove("hidden");
+        updatePlayersFilterCount(0, totalCount);
+        return;
+    }
+
+    el.playersEmpty.classList.add("hidden");
+    players.forEach((player) => {
+        const card = document.createElement("div");
+        card.className = "player-card";
+
+        card.appendChild(createLabeledText("ID", player.player_id || "N/A", "player-id"));
+
+        const meta = document.createElement("div");
+        meta.className = "player-meta";
+        meta.appendChild(createMetaItem("Sessions", player.session_count ?? 0));
+        meta.appendChild(createMetaItem("Last Activity", formatPlayerActivity(player.last_activity)));
+        card.appendChild(meta);
+
+        if (player.latest_chapter) {
+            card.appendChild(createLabeledText("Chapter", player.latest_chapter, "player-detail"));
+        }
+        if (player.latest_status) {
+            card.appendChild(createLabeledText("Status", player.latest_status, "player-detail"));
+        }
+
+        const sources = document.createElement("div");
+        sources.className = "player-sources";
+        sources.textContent = (player.data_sources || []).length > 0
+            ? player.data_sources.join(", ")
+            : "No metadata sources";
+        card.appendChild(sources);
+
+        el.playersList.appendChild(card);
+    });
+
+    updatePlayersFilterCount(players.length, totalCount);
+}
+
+function applyPlayersFilters() {
+    const query = (el.playersFilter?.value || "").trim().toLowerCase();
+    const activityFilter = el.playersActivityFilter?.value || "all";
+    const filteredPlayers = state.players.filter((player) => (
+        playerMatchesSearch(player, query)
+        && playerMatchesActivityFilter(player, activityFilter)
+    ));
+    renderPlayersList(filteredPlayers, state.players.length);
+}
+
+function clearPlayerFilters() {
+    if (el.playersFilter) el.playersFilter.value = "";
+    if (el.playersActivityFilter) el.playersActivityFilter.value = "all";
+    applyPlayersFilters();
+}
+
+function renderWarnings(listElement, panelElement, warnings) {
+    listElement.textContent = "";
+    if (warnings.length === 0) {
+        panelElement.classList.add("hidden");
+        return;
+    }
+
+    warnings.forEach((warning) => {
+        const item = document.createElement("li");
+        item.textContent = warning;
+        listElement.appendChild(item);
+    });
+    panelElement.classList.remove("hidden");
 }
 
 async function loadPlayers() {
     setMessage(el.playersMessage, "Loading players...");
+    if (el.playersRefreshButton) el.playersRefreshButton.disabled = true;
     try {
         const data = await api("/players");
+        state.players = Array.isArray(data.players) ? data.players : [];
         
         el.playersCount.textContent = data.summary.player_count;
         el.sessionsCount.textContent = data.summary.session_count;
         el.active24h.textContent = data.summary.active_recent_24h;
         el.active7d.textContent = data.summary.active_recent_7d;
-        
-        if (data.players.length === 0) {
-            el.playersList.innerHTML = "";
-            el.playersEmpty.classList.remove("hidden");
-        } else {
-            el.playersEmpty.classList.add("hidden");
-            el.playersList.innerHTML = data.players.map(p => `
-                <div class="player-card">
-                    <div class="player-id"><strong>ID:</strong> ${p.player_id}</div>
-                    <div class="player-meta">
-                        <span><strong>Sessions:</strong> ${p.session_count}</span>
-                        <span><strong>Last Activity:</strong> ${p.last_activity ? new Date(p.last_activity).toLocaleString() : "N/A"}</span>
-                    </div>
-                    ${p.latest_chapter ? `<div class="player-detail"><strong>Chapter:</strong> ${p.latest_chapter}</div>` : ""}
-                    ${p.latest_status ? `<div class="player-detail"><strong>Status:</strong> ${p.latest_status}</div>` : ""}
-                    <div class="player-sources">${p.data_sources.join(", ")}</div>
-                </div>
-            `).join("");
-        }
-        
-        if (data.warnings.length > 0) {
-            el.playersWarnings.innerHTML = data.warnings.map(w => `<li>${w}</li>`).join("");
-            el.playersWarningsPanel.classList.remove("hidden");
-        } else {
-            el.playersWarningsPanel.classList.add("hidden");
-        }
+
+        applyPlayersFilters();
+        renderWarnings(el.playersWarnings, el.playersWarningsPanel, data.warnings || []);
         
         setMessage(el.playersMessage, "Players loaded.", "success");
     } catch (error) {
         setMessage(el.playersMessage, error.message, "error");
+    } finally {
+        if (el.playersRefreshButton) el.playersRefreshButton.disabled = false;
     }
 }
 
@@ -838,6 +1152,16 @@ el.validateConfigButton.addEventListener("click", validateRuntimeConfig);
 el.saveConfigButton.addEventListener("click", saveRuntimeConfig);
 el.runtimeFormModeButton.addEventListener("click", switchToFormMode);
 el.runtimeJsonModeButton.addEventListener("click", switchToJsonMode);
+el.runtimeConfigText.addEventListener("input", updateRuntimeDirtyState);
+getRuntimeFormFields().forEach((field) => {
+    field.addEventListener("input", updateRuntimeDirtyState);
+});
+getRuntimeFeatureFlagFields().forEach(([fieldName, field]) => {
+    field.addEventListener("change", () => {
+        syncRuntimeFeatureFlagFromInput(fieldName, field);
+        updateRuntimeDirtyState();
+    });
+});
 el.llmConfigLoadButton.addEventListener("click", loadLlmConfig);
 el.llmConfigSaveButton.addEventListener("click", saveLlmConfig);
 el.llmConfigTestButton.addEventListener("click", testLlmFromConfig);
@@ -847,12 +1171,22 @@ el.resetPromptButton.addEventListener("click", resetPromptOverride);
 el.deletePromptButton.addEventListener("click", deletePromptOverride);
 el.promptOverride.addEventListener("input", () => {
     state.hasUnsavedPromptChanges = el.promptOverride.value !== state.loadedPromptContent;
+    updatePromptButtons();
 });
 if (el.systemRefreshButton) {
     el.systemRefreshButton.addEventListener("click", loadSystemStatus);
 }
 if (el.playersRefreshButton) {
     el.playersRefreshButton.addEventListener("click", loadPlayers);
+}
+if (el.playersFilter) {
+    el.playersFilter.addEventListener("input", applyPlayersFilters);
+}
+if (el.playersActivityFilter) {
+    el.playersActivityFilter.addEventListener("change", applyPlayersFilters);
+}
+if (el.playersClearFiltersButton) {
+    el.playersClearFiltersButton.addEventListener("click", clearPlayerFilters);
 }
 if (el.dashboardRefreshButton) {
     el.dashboardRefreshButton.addEventListener("click", async () => {
@@ -867,5 +1201,7 @@ if (el.dashboardRefreshButton) {
 document.querySelectorAll(".nav-item").forEach(btn => {
     btn.addEventListener("click", () => switchSection(btn.dataset.section));
 });
+
+window.addEventListener("beforeunload", warnBeforeUnload);
 
 checkStatus();
