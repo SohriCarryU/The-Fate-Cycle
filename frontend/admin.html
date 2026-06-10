@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Fate Cycle Admin</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+    <main class="admin-console">
+        <header class="console-header">
+            <div class="header-title">
+                <h1>The Fate Cycle Admin</h1>
+                <p class="header-subtitle">Management Console</p>
+            </div>
+            <div class="header-actions">
+                <span id="auth-status" class="auth-badge">Checking...</span>
+                <button id="logout-button" class="secondary hidden" type="button">Logout</button>
+            </div>
+        </header>
+
+        <section id="login-panel" class="panel login-panel hidden">
+            <h2>Admin Login</h2>
+            <p class="note">Password is sent only to the backend login API. It is not stored in localStorage or sessionStorage.</p>
+            <form id="login-form" class="form-row">
+                <input id="admin-password" type="password" autocomplete="current-password" placeholder="Admin password" required>
+                <button type="submit">Login</button>
+            </form>
+            <p id="login-message" class="message"></p>
+            <p id="global-message" class="message"></p>
+        </section>
+
+        <div id="admin-console" class="hidden">
+            <nav class="console-nav">
+                <button type="button" class="nav-item active" data-section="dashboard">Dashboard</button>
+                <button type="button" class="nav-item" data-section="players">Players</button>
+                <button type="button" class="nav-item" data-section="llm-config">LLM Config</button>
+                <button type="button" class="nav-item" data-section="runtime-config">Runtime Config</button>
+                <button type="button" class="nav-item" data-section="prompts">Prompts</button>
+                <button type="button" class="nav-item" data-section="llm-test">LLM Test</button>
+                <button type="button" class="nav-item" data-section="system">System</button>
+            </nav>
+
+            <div class="console-content">
+                <section id="section-dashboard" class="content-section active">
+                    <h2>Dashboard</h2>
+                    <div class="dashboard-actions">
+                        <button id="dashboard-refresh-button" type="button">Refresh Dashboard</button>
+                    </div>
+                    <div class="dashboard-grid">
+                        <div class="card">
+                            <h3>LLM API</h3>
+                            <div id="dash-llm-status" class="card-status">-</div>
+                            <div id="dash-llm-details" class="card-details">Checking LLM configuration...</div>
+                        </div>
+                        <div class="card">
+                            <h3>Runtime Config</h3>
+                            <div id="dash-runtime-status" class="card-status">-</div>
+                            <div id="dash-runtime-details" class="card-details">Checking runtime config...</div>
+                        </div>
+                        <div class="card">
+                            <h3>System</h3>
+                            <div id="dash-system-status" class="card-status">-</div>
+                            <div id="dash-system-details" class="card-details">Checking system status...</div>
+                        </div>
+                        <div class="card">
+                            <h3>Players</h3>
+                            <div id="dash-players-status" class="card-status">-</div>
+                            <div id="dash-players-details" class="card-details">Loading player summary...</div>
+                        </div>
+                        <div class="card">
+                            <h3>Prompts</h3>
+                            <div id="dash-prompts-status" class="card-status">-</div>
+                            <div id="dash-prompts-details" class="card-details">Loading prompt summary...</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="section-players" class="content-section">
+                    <h2>Players</h2>
+                    <div class="players-actions">
+                        <button id="players-refresh-button" type="button">Refresh</button>
+                    </div>
+                    <p id="players-message" class="message"></p>
+
+                    <div class="panel">
+                        <h3>Summary</h3>
+                        <div class="players-summary">
+                            <div class="summary-item">
+                                <div class="summary-label">Players</div>
+                                <div id="players-count" class="summary-value">-</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Sessions</div>
+                                <div id="sessions-count" class="summary-value">-</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Active 24h</div>
+                                <div id="active-24h" class="summary-value">-</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Active 7d</div>
+                                <div id="active-7d" class="summary-value">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <h3>Player List</h3>
+                        <div id="players-list" class="players-list"></div>
+                        <div id="players-empty" class="empty-state hidden">No players found</div>
+                    </div>
+
+                    <div id="players-warnings-panel" class="panel hidden">
+                        <h3>Warnings</h3>
+                        <ul id="players-warnings" class="warning-list"></ul>
+                    </div>
+                </section>
+
+                <section id="section-llm-config" class="content-section">
+                    <h2>LLM API Config</h2>
+                    <div class="panel">
+                        <p class="note">Set the API key, base URL, and model names for LLM calls. The API key is stored server-side only and is never returned in full. Leave API Key blank to keep the existing key. Tick "Clear API Key" to remove it entirely.</p>
+                        <div class="form-grid">
+                            <label for="llm-config-base-url">Base URL</label>
+                            <input id="llm-config-base-url" type="url" placeholder="https://api.openai.com/v1">
+
+                            <label for="llm-config-api-key">API Key</label>
+                            <input id="llm-config-api-key" type="password" autocomplete="new-password" placeholder="Leave blank to keep existing key">
+
+                            <span></span>
+                            <label class="inline-check"><input id="llm-config-clear-key" type="checkbox"> Clear API Key (requires confirmation)</label>
+
+                            <label for="llm-config-main-model">Main Model</label>
+                            <input id="llm-config-main-model" type="text" placeholder="e.g. gpt-4o">
+
+                            <label for="llm-config-cheat-model">Cheat Check Model</label>
+                            <input id="llm-config-cheat-model" type="text" placeholder="e.g. gpt-4o-mini">
+                        </div>
+                        <p id="llm-config-key-hint" class="note key-hint"></p>
+                        <div class="button-row">
+                            <button id="llm-config-load-button" type="button">Load Config</button>
+                            <button id="llm-config-save-button" type="button">Save Config</button>
+                            <button id="llm-config-test-button" type="button" class="secondary">Test Connection</button>
+                        </div>
+                        <p id="llm-config-message" class="message"></p>
+                        <pre id="llm-config-result" class="result-box hidden"></pre>
+                    </div>
+                </section>
+
+                <section id="section-runtime-config" class="content-section">
+                    <h2>Runtime Config</h2>
+                    
+                    <div class="runtime-mode-switch">
+                        <button id="runtime-form-mode-button" type="button" class="mode-button active">Form Mode</button>
+                        <button id="runtime-json-mode-button" type="button" class="mode-button">Advanced JSON</button>
+                    </div>
+
+                    <div class="panel" id="runtime-form-panel">
+                        <p class="note">Do not put API keys, secrets, passwords, tokens, invite codes, or database URLs here. feature_flags and world_style are currently saved only; they do not change game behavior yet.</p>
+                        
+                        <fieldset class="config-fieldset">
+                            <legend>LLM</legend>
+                            <div class="form-grid">
+                                <label for="form-openai-model">Main Model</label>
+                                <input id="form-openai-model" type="text" maxlength="200" placeholder="e.g. gpt-4o">
+                                
+                                <label for="form-openai-model-cheat-check">Cheat Check Model</label>
+                                <input id="form-openai-model-cheat-check" type="text" maxlength="200" placeholder="e.g. gpt-4o-mini">
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="config-fieldset">
+                            <legend>Image Generation</legend>
+                            <div class="form-grid">
+                                <label for="form-image-gen-model">Image Model</label>
+                                <input id="form-image-gen-model" type="text" maxlength="200" placeholder="e.g. dall-e-3">
+                                
+                                <label for="form-image-gen-idle-seconds">Idle Seconds</label>
+                                <input id="form-image-gen-idle-seconds" type="number" min="1" max="3600" placeholder="1-3600">
+                                
+                                <label for="form-image-gen-global-limit">Global Limit</label>
+                                <input id="form-image-gen-global-limit" type="number" min="1" max="1000" placeholder="1-1000">
+                                
+                                <label for="form-image-gen-global-window-seconds">Window Seconds</label>
+                                <input id="form-image-gen-global-window-seconds" type="number" min="1" max="86400" placeholder="1-86400">
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="config-fieldset">
+                            <legend>Feature Flags</legend>
+                            <div class="checkbox-grid">
+                                <label class="checkbox-label">
+                                    <input id="form-cheat-check-enabled" type="checkbox">
+                                    <span>Cheat Check Enabled</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input id="form-image-generation-enabled" type="checkbox">
+                                    <span>Image Generation Enabled</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input id="form-live-view-enabled" type="checkbox">
+                                    <span>Live View Enabled</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input id="form-redemption-enabled" type="checkbox">
+                                    <span>Redemption Enabled</span>
+                                </label>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="config-fieldset">
+                            <legend>World Style</legend>
+                            <div class="form-grid">
+                                <label for="form-game-title">Game Title</label>
+                                <input id="form-game-title" type="text" maxlength="100">
+                                
+                                <label for="form-gm-identity">GM Identity</label>
+                                <input id="form-gm-identity" type="text" maxlength="100">
+                                
+                                <label for="form-world-genre">World Genre</label>
+                                <input id="form-world-genre" type="text" maxlength="100">
+                                
+                                <label for="form-resource-name">Resource Name</label>
+                                <input id="form-resource-name" type="text" maxlength="50">
+                                
+                                <label for="form-opportunity-name">Opportunity Name</label>
+                                <input id="form-opportunity-name" type="text" maxlength="50">
+                                
+                                <label for="form-cycle-name">Cycle Name</label>
+                                <input id="form-cycle-name" type="text" maxlength="50">
+                                
+                                <label for="form-end-action-name">End Action Name</label>
+                                <input id="form-end-action-name" type="text" maxlength="50">
+                                
+                                <label for="form-tone">Tone</label>
+                                <textarea id="form-tone" maxlength="500" rows="3"></textarea>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <div class="panel hidden" id="runtime-json-panel">
+                        <p class="note">Do not put API keys, secrets, passwords, tokens, invite codes, or database URLs here. feature_flags and world_style are currently saved only; they do not change game behavior yet.</p>
+                        <textarea id="runtime-config-text" spellcheck="false" aria-label="Runtime config JSON"></textarea>
+                    </div>
+
+                    <div class="panel">
+                        <div class="meta-row">
+                            <span>Source: <code id="runtime-source">-</code></span>
+                            <span>Exists: <code id="runtime-exists">-</code></span>
+                        </div>
+                        <div class="button-row">
+                            <button id="reload-config-button" type="button">Reload</button>
+                            <button id="validate-config-button" type="button">Validate</button>
+                            <button id="save-config-button" type="button">Save</button>
+                        </div>
+                        <p id="runtime-message" class="message"></p>
+                        <pre id="runtime-result" class="result-box"></pre>
+                    </div>
+
+                    <div class="panel">
+                        <h3>Restart Policy</h3>
+                        <p class="note">Some settings apply on the next call; secrets and API client settings still require backend restart.</p>
+                        <div id="restart-policy"></div>
+                    </div>
+                </section>
+
+                <section id="section-prompts" class="content-section">
+                    <h2>Prompts</h2>
+                    <div class="panel">
+                        <p class="note">Prompt changes affect future calls only. Existing session history is not migrated automatically.</p>
+                        <div class="prompts-layout">
+                            <div class="prompts-sidebar">
+                                <div id="prompt-list" class="prompt-list"></div>
+                                <p id="prompt-list-message" class="message"></p>
+                            </div>
+
+                            <div id="prompt-editor" class="prompts-editor hidden">
+                                <h3 id="prompt-title">Prompt</h3>
+                                <p>Effective source: <code id="prompt-effective-source">-</code></p>
+
+                                <label for="prompt-default">Default content (read only)</label>
+                                <textarea id="prompt-default" class="prompt-textarea" readonly spellcheck="false"></textarea>
+
+                                <label for="prompt-override">Override content (editable)</label>
+                                <textarea id="prompt-override" class="prompt-textarea" spellcheck="false"></textarea>
+
+                                <label for="prompt-effective">Effective content (read only)</label>
+                                <textarea id="prompt-effective" class="prompt-textarea" readonly spellcheck="false"></textarea>
+
+                                <div class="button-row">
+                                    <button id="save-prompt-button" type="button">Save Override</button>
+                                    <button id="reset-prompt-button" type="button" class="secondary">Reset to Default</button>
+                                    <button id="delete-prompt-button" class="danger" type="button">Delete Override</button>
+                                </div>
+                                <p id="prompt-message" class="message"></p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="section-llm-test" class="content-section">
+                    <h2>LLM Test</h2>
+                    <div class="panel">
+                        <p class="note">Low-cost ping only. This does not run game prompts, image generation, or gameplay logic.</p>
+                        <div class="form-grid">
+                            <label for="llm-kind">Kind</label>
+                            <select id="llm-kind">
+                                <option value="main">main</option>
+                                <option value="cheat_check">cheat_check</option>
+                            </select>
+
+                            <label for="llm-model">Model override</label>
+                            <input id="llm-model" type="text" maxlength="200" placeholder="Leave blank to use effective model">
+
+                            <label for="llm-message">Message</label>
+                            <textarea id="llm-message" class="small-textarea" maxlength="500" spellcheck="false">Respond with exactly: OK</textarea>
+                        </div>
+                        <div class="button-row">
+                            <button id="llm-test-button" type="button">Test LLM</button>
+                        </div>
+                        <p id="llm-message-output" class="message"></p>
+                        <pre id="llm-result" class="result-box"></pre>
+                    </div>
+                </section>
+
+                <section id="section-system" class="content-section">
+                    <h2>System Status</h2>
+                    <div class="system-actions">
+                        <button id="system-refresh-button" type="button">Refresh Status</button>
+                    </div>
+                    <p id="system-message" class="message"></p>
+
+                    <div class="panel">
+                        <h3>Application</h3>
+                        <div id="system-app" class="system-info"></div>
+                    </div>
+
+                    <div class="panel">
+                        <h3>Environment Configuration</h3>
+                        <div id="system-env" class="system-info"></div>
+                    </div>
+
+                    <div class="panel">
+                        <h3>Database</h3>
+                        <div id="system-database" class="system-info"></div>
+                    </div>
+
+                    <div class="panel">
+                        <h3>Game Data</h3>
+                        <div id="system-game-data" class="system-info"></div>
+                    </div>
+
+                    <div class="panel">
+                        <h3>Resource Counts</h3>
+                        <div id="system-counts" class="system-info"></div>
+                    </div>
+
+                    <div id="system-warnings-panel" class="panel hidden">
+                        <h3>Warnings</h3>
+                        <ul id="system-warnings" class="warning-list"></ul>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="admin.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,606 @@
+:root {
+    color-scheme: light;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f4f5f7;
+    color: #1f2933;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+}
+
+.admin-console {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.console-header {
+    background: #fff;
+    border-bottom: 1px solid #d8dee8;
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.header-title h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.header-subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    color: #5d6b7a;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.auth-badge {
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.auth-ok {
+    background: #d1fae5;
+    color: #166534;
+}
+
+.auth-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.auth-disabled {
+    background: #e5e7eb;
+    color: #6b7280;
+}
+
+.login-panel {
+    max-width: 480px;
+    margin: 2rem auto;
+}
+
+.console-nav {
+    background: #fff;
+    border-bottom: 1px solid #d8dee8;
+    padding: 0 1.5rem;
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+}
+
+.nav-item {
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: #5d6b7a;
+    cursor: pointer;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.nav-item:hover {
+    color: #1f2933;
+    background: #f8fafc;
+}
+
+.nav-item.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+
+.console-content {
+    flex: 1;
+    padding: 1.5rem;
+    max-width: 1280px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.content-section {
+    display: none;
+}
+
+.content-section.active {
+    display: block;
+}
+
+.dashboard-actions {
+    margin-bottom: 1rem;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #d8dee8;
+    border-radius: 8px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.card h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+}
+
+.card-status {
+    font-weight: 600;
+    font-size: 1.125rem;
+    margin-bottom: 0.75rem;
+}
+
+.status-ok {
+    color: #166534;
+}
+
+.status-warning {
+    color: #92400e;
+}
+
+.status-error {
+    color: #b42318;
+}
+
+.card-details {
+    font-size: 0.875rem;
+    color: #5d6b7a;
+}
+
+.card-details p {
+    margin: 0.25rem 0;
+}
+
+h1, h2, h3 {
+    margin-top: 0;
+}
+
+.panel {
+    background: #fff;
+    border: 1px solid #d8dee8;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.note {
+    color: #5d6b7a;
+    font-size: 0.95rem;
+}
+
+.message {
+    min-height: 1.25rem;
+    font-weight: 600;
+}
+
+.message.success {
+    color: #166534;
+}
+
+.message.error {
+    color: #b42318;
+}
+
+.form-row, .button-row, .meta-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: center;
+}
+
+input, textarea, button, select {
+    font: inherit;
+}
+
+input, select {
+    min-width: min(360px, 100%);
+    padding: 0.6rem 0.7rem;
+    border: 1px solid #b8c2cc;
+    border-radius: 6px;
+}
+
+.small-textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: 0.75rem;
+    border: 1px solid #b8c2cc;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+button {
+    padding: 0.55rem 0.9rem;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #fff;
+    cursor: pointer;
+}
+
+button.secondary {
+    background: #fff;
+    color: #1f2933;
+    border-color: #9aa6b2;
+}
+
+button.danger {
+    background: #b42318;
+    border-color: #b42318;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#runtime-config-text {
+    width: 100%;
+    min-height: 320px;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    border: 1px solid #b8c2cc;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.prompt-textarea {
+    width: 100%;
+    min-height: 220px;
+    margin: 0.4rem 0 1rem;
+    padding: 0.75rem;
+    border: 1px solid #b8c2cc;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.result-box {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    max-height: 260px;
+    overflow: auto;
+}
+
+.prompts-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 1.5rem;
+}
+
+.prompts-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.prompt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.prompt-list button {
+    background: #fff;
+    color: #1f2933;
+    border-color: #9aa6b2;
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+}
+
+.prompt-list button:hover {
+    background: #f8fafc;
+}
+
+.prompt-list button.active {
+    background: #0f172a;
+    color: #fff;
+}
+
+.prompt-list button.has-override {
+    border-left: 3px solid #2563eb;
+}
+
+.prompts-editor {
+    display: flex;
+    flex-direction: column;
+}
+
+.inline-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.inline-check input[type="checkbox"] {
+    min-width: unset;
+    width: auto;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.key-hint {
+    margin: 0.4rem 0 0;
+    font-style: italic;
+}
+
+.system-actions {
+    margin-bottom: 1rem;
+}
+
+.players-actions {
+    margin-bottom: 1rem;
+}
+
+.players-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+}
+
+.summary-item {
+    text-align: center;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 6px;
+}
+
+.summary-label {
+    font-size: 0.875rem;
+    color: #5d6b7a;
+    margin-bottom: 0.5rem;
+}
+
+.summary-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2933;
+}
+
+.players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.player-card {
+    padding: 1rem;
+    border: 1px solid #d8dee8;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.player-id {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: #1f2933;
+}
+
+.player-meta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.875rem;
+    color: #5d6b7a;
+    margin-bottom: 0.5rem;
+}
+
+.player-detail {
+    font-size: 0.875rem;
+    color: #5d6b7a;
+    margin-top: 0.25rem;
+}
+
+.player-sources {
+    font-size: 0.75rem;
+    color: #9aa6b2;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #5d6b7a;
+    font-style: italic;
+}
+
+.system-info p {
+    margin: 0.5rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.system-info strong {
+    min-width: 180px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.status-badge.status-ok {
+    background: #d1fae5;
+    color: #166534;
+}
+
+.status-badge.status-error {
+    background: #fee2e2;
+    color: #b42318;
+}
+
+.status-badge.status-unknown {
+    background: #e5e7eb;
+    color: #6b7280;
+}
+
+.warning-list {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.warning-list li {
+    color: #92400e;
+    margin: 0.25rem 0;
+}
+
+ul {
+    margin-top: 0.35rem;
+}
+
+@media (max-width: 720px) {
+    .console-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .prompts-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .prompts-sidebar {
+        border-bottom: 1px solid #d8dee8;
+        padding-bottom: 1rem;
+    }
+
+    .console-content {
+        padding: 1rem;
+    }
+
+    button, input {
+        width: 100%;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.runtime-mode-switch {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.mode-button {
+    padding: 0.55rem 1rem;
+    border: 1px solid #d8dee8;
+    border-radius: 6px;
+    background: #fff;
+    color: #2f3a45;
+    cursor: pointer;
+}
+
+.mode-button.active {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+}
+
+.mode-button:hover:not(.active) {
+    background: #f1f5f9;
+}
+
+.config-fieldset {
+    border: 1px solid #d8dee8;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.config-fieldset legend {
+    font-weight: 600;
+    color: #2f3a45;
+    padding: 0 0.5rem;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    min-width: auto;
+    width: auto;
+    cursor: pointer;
+}
+
+.checkbox-label span {
+    user-select: none;
+}
+
+#runtime-form-panel textarea,
+#runtime-json-panel textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 0.75rem;
+    border: 1px solid #b8c2cc;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875rem;
+}
+
+#runtime-config-text {
+    width: 100%;
+    min-height: 300px;
+    padding: 0.75rem;
+    border: 1px solid #b8c2cc;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875rem;
+}
+

@@ -4,28 +4,11 @@ import re
 
 from . import openai_client
 from . import state_manager
+from . import runtime_config
 from .config import settings
 
 # --- Logging ---
 logger = logging.getLogger(__name__)
-
-from pathlib import Path
-
-
-def _load_prompt(filename: str) -> str:
-    """Helper function to load a prompt from the prompts directory."""
-    try:
-        prompt_path = Path(__file__).parent / "prompts" / filename
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        logger.error(f"Prompt file not found: {filename}")
-        return ""
-
-
-# --- Anti-Cheat Prompt ---
-CHEAT_CHECK_SYSTEM_PROMPT = _load_prompt("cheat_check.txt")
-
 
 def _parse_verdict_xml(response: str) -> tuple[str, str]:
     """
@@ -75,12 +58,17 @@ async def run_cheat_check(player_id: str, inputs_to_check: list[str]) -> str:
     )
 
     full_prompt = f"# 用户输入列表\n\n<user_inputs>\n{formatted_inputs}\n</user_inputs>"
+    runtime = runtime_config.get_runtime_config()
+    cheat_check_model = (
+        runtime.get("llm", {}).get("openai_model_cheat_check")
+        or settings.OPENAI_MODEL_CHEAT_CHECK
+    )
 
     # Single API call for the whole batch
     response = await openai_client.get_ai_response(
         prompt=full_prompt,
-        history=[{"role": "system", "content": CHEAT_CHECK_SYSTEM_PROMPT}],
-        model=settings.OPENAI_MODEL_CHEAT_CHECK,
+        history=[{"role": "system", "content": runtime_config.load_prompt("cheat_check.txt")}],
+        model=cheat_check_model,
         force_json=False,
         user_id=player_id,
     )

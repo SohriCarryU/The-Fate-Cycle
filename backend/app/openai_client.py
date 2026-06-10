@@ -18,6 +18,9 @@ import json
 import time
 from collections import deque
 
+from . import runtime_config
+from . import llm_secret_store
+
 # --- Logging ---
 logger = logging.getLogger(__name__)
 
@@ -64,8 +67,20 @@ async def _try_acquire_global_image_quota(count: int = 1) -> tuple[bool, float |
     if count <= 0:
         return True, None
 
-    window_seconds = max(1, int(settings.IMAGE_GEN_GLOBAL_WINDOW_SECONDS))
-    limit = max(1, int(settings.IMAGE_GEN_GLOBAL_LIMIT))
+    window_seconds = max(
+        1,
+        int(
+            _get_runtime_value("image_generation", "image_gen_global_window_seconds")
+            or settings.IMAGE_GEN_GLOBAL_WINDOW_SECONDS
+        ),
+    )
+    limit = max(
+        1,
+        int(
+            _get_runtime_value("image_generation", "image_gen_global_limit")
+            or settings.IMAGE_GEN_GLOBAL_LIMIT
+        ),
+    )
     now = _time_now()
 
     async with _global_image_gen_lock:
@@ -139,11 +154,32 @@ def _extract_json_from_response(response_str: str) -> str | None:
     return None
 
 
+def _get_runtime_value(section: str, key: str):
+    value = runtime_config.get_runtime_config().get(section, {}).get(key)
+    return value if value not in (None, "") else None
+
+
+def _effective_openai_model(model: str | None = None) -> str:
+    return model or _get_runtime_value("llm", "openai_model") or llm_secret_store.get_effective_llm_config()["main_model"]
+
+
+def get_effective_openai_model(model: str | None = None) -> str:
+    return _effective_openai_model(model)
+
+
+def get_effective_cheat_check_model(model: str | None = None) -> str:
+    return model or _get_runtime_value("llm", "openai_model_cheat_check") or llm_secret_store.get_effective_llm_config()["cheat_check_model"]
+
+
+def _effective_image_model() -> str | None:
+    return _get_runtime_value("image_generation", "image_gen_model") or settings.IMAGE_GEN_MODEL
+
+
 # --- Core Function ---
 async def get_ai_response(
     prompt: str,
     history: list[dict] | None = None,
-    model=settings.OPENAI_MODEL,
+    model: str | None = None,
     force_json=True,
     user_id: str | None = None,
 ) -> str:
@@ -162,6 +198,7 @@ async def get_ai_response(
     """
     if not client:
         return "错误：OpenAI客户端未初始化。请在 backend/.env 文件中正确设置您的 OPENAI_API_KEY。"
+    effective_model = _effective_openai_model(model)
     
     # 用户并发限制
     if user_id:
@@ -176,18 +213,19 @@ async def get_ai_response(
         # 使用信号量包装后续逻辑
         async with semaphore:
             logger.debug(f"用户 {user_id} 获取LLM请求槽位，当前可用: {semaphore._value}")
-            return await _get_ai_response_impl(prompt, history, model, force_json)
+            return await _get_ai_response_impl(prompt, history, effective_model, force_json)
     else:
-        return await _get_ai_response_impl(prompt, history, model, force_json)
+        return await _get_ai_response_impl(prompt, history, effective_model, force_json)
 
 
 async def _get_ai_response_impl(
     prompt: str,
     history: list[dict] | None = None,
-    model=settings.OPENAI_MODEL,
+    model: str | None = None,
     force_json=True,
 ) -> str:
     """实际执行AI请求的内部函数"""
+    model = _effective_openai_model(model)
 
     messages = []
     if history:
@@ -269,11 +307,64 @@ async def _get_ai_response_impl(
             await asyncio.sleep(delay)
 
 
+async def test_llm_connection(
+    kind: str = "main",
+    model: str | None = None,
+    message: str = "Respond with exactly: OK",
+    timeout_seconds: int = 15,
+) -> dict:
+    started = time.monotonic()
+    if kind == "main":
+        effective_model = get_effective_openai_model(model)
+    elif kind == "cheat_check":
+        effective_model = get_effective_cheat_check_model(model)
+    else:
+        raise ValueError("kind must be main or cheat_check")
+
+    def result(**kwargs):
+        return {
+            "kind": kind,
+            "model": effective_model,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+            **kwargs,
+        }
+
+    # Use effective config from secret store
+    llm_config = llm_secret_store.get_effective_llm_config()
+    api_key = llm_config.get("api_key")
+    base_url = llm_config.get("base_url")
+    
+    if not api_key or api_key == "your_openai_api_key_here":
+        return result(ok=False, error="API key is not configured. Please configure it in LLM API Config.")
+    
+    # Create temporary client for testing
+    try:
+        from openai import AsyncOpenAI
+        test_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+    except Exception as e:
+        return result(ok=False, error=f"Failed to create test client: {e}")
+
+    try:
+        response = await asyncio.wait_for(
+            test_client.chat.completions.create(
+                model=effective_model,
+                messages=[{"role": "user", "content": message}],
+                max_tokens=16,
+                temperature=0,
+            ),
+            timeout=timeout_seconds,
+        )
+        content = response.choices[0].message.content or ""
+        return result(ok=True, response_preview=content.strip()[:200])
+    except Exception as e:
+        return result(ok=False, error=str(e))
+
+
 
 # --- Image Generation ---
 def is_image_gen_enabled() -> bool:
     """检查图片生成功能是否启用"""
-    return image_client is not None and settings.IMAGE_GEN_MODEL is not None
+    return image_client is not None and _effective_image_model() is not None
 
 
 async def generate_image(scene_prompt: str, user_id: str | None = None) -> str | None:
@@ -288,7 +379,8 @@ async def generate_image(scene_prompt: str, user_id: str | None = None) -> str |
         生成的图片 base64 data URL，格式如 "data:image/jpeg;base64,..."
         如果失败返回 None
     """
-    if not image_client or not settings.IMAGE_GEN_MODEL:
+    image_model = _effective_image_model()
+    if not image_client or not image_model:
         logger.warning("图片生成客户端未初始化，跳过图片生成。")
         return None
     
@@ -313,8 +405,10 @@ async def _generate_image_impl(scene_prompt: str) -> str | None:
         logger.warning(
             "全局图片生成频率已达上限：%s 秒后再试（窗口=%ss, 上限=%s）",
             round(retry_after or 0.0, 2),
-            settings.IMAGE_GEN_GLOBAL_WINDOW_SECONDS,
-            settings.IMAGE_GEN_GLOBAL_LIMIT,
+            _get_runtime_value("image_generation", "image_gen_global_window_seconds")
+            or settings.IMAGE_GEN_GLOBAL_WINDOW_SECONDS,
+            _get_runtime_value("image_generation", "image_gen_global_limit")
+            or settings.IMAGE_GEN_GLOBAL_LIMIT,
         )
         return None
     
@@ -372,7 +466,7 @@ async def _generate_image_impl(scene_prompt: str) -> str | None:
         logger.info(f"开始生成图片，提示词长度: {len(scene_prompt)}")
         
         response = await image_client.chat.completions.create(
-            model=settings.IMAGE_GEN_MODEL,
+            model=_effective_image_model(),
             messages=[
                 {"role": "user", "content": image_prompt}
             ]

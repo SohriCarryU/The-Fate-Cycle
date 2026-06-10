@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status, Cookie
@@ -35,6 +36,25 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
+
+def normalize_simple_username(username: str | None) -> str:
+    username = (username or "").strip()
+    if not username:
+        raise ValueError("username is required")
+    if len(username) > 32:
+        raise ValueError("username must be 1-32 characters")
+    if username in {".", ".."}:
+        raise ValueError("username contains unsafe characters")
+
+    dangerous_chars = set('/\\:*?"<>|')
+    if any(ch in dangerous_chars or ord(ch) < 32 or ord(ch) == 127 for ch in username):
+        raise ValueError("username contains unsafe characters")
+    return username
+
+def stable_user_id_from_username(username: str) -> int:
+    digest = hashlib.sha256(username.encode("utf-8")).digest()
+    user_id = int.from_bytes(digest[:8], "big") & 0x7FFFFFFF
+    return user_id or 1
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()

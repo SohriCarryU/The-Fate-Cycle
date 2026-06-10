@@ -32,7 +32,11 @@
         <div id="login-view" class="view active">
             <h1>浮生十梦</h1>
             <p>此乃试炼之地，请先表明身份。</p>
-            <a href="/api/login/linuxdo" class="login-button">使用 Linux.do 登录</a>
+            <form id="login-form">
+                <input type="text" id="login-username" name="username" maxlength="32" autocomplete="username" placeholder="道号" required>
+                <input type="password" id="login-invite-code" name="invite_code" autocomplete="off" placeholder="邀请码">
+                <button type="submit" id="login-button" class="login-button">进入试炼</button>
+            </form>
             <p id="login-error" class="error-message"></p>
         </div>
 

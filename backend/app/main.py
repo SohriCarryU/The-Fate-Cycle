@@ -9,12 +9,13 @@ from fastapi import (
     FastAPI, APIRouter, Depends, HTTPException, status,
     WebSocket, WebSocketDisconnect, Request
 )
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 
-from . import auth, game_logic, state_manager, security, image_store
+from . import auth, game_logic, state_manager, security, image_store, runtime_config
+from .admin import router as admin_router
 from .websocket_manager import manager as websocket_manager
 from .live_system import live_manager
 from .config import settings
@@ -22,6 +23,11 @@ from .config import settings
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class SimpleLoginRequest(BaseModel):
+    username: str
+    invite_code: str = ""
 
 # --- App Lifecycle ---
 @asynccontextmanager
@@ -48,6 +54,56 @@ root_router = APIRouter()
 
 
 # --- Authentication Routes ---
+@api_router.post('/login/simple')
+async def login_simple(payload: SimpleLoginRequest):
+    """Creates a local playtest session using a username and optional invite code."""
+    try:
+        username = auth.normalize_simple_username(payload.username)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    invite_code = (payload.invite_code or "").strip()
+    if (
+        not settings.SIMPLE_LOGIN_ALLOW_EMPTY_INVITE
+        and invite_code != settings.SIMPLE_LOGIN_INVITE_CODE
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid invite code",
+        )
+
+    user = {
+        "username": username,
+        "id": auth.stable_user_id_from_username(username),
+        "name": username,
+        "trust_level": 0,
+        "login_type": "simple",
+    }
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={
+            "sub": user["username"],
+            "id": user["id"],
+            "name": user["name"],
+            "trust_level": user["trust_level"],
+            "login_type": user["login_type"],
+        },
+        expires_delta=access_token_expires,
+    )
+
+    response = JSONResponse({"ok": True, "user": user})
+    response.set_cookie(
+        "token",
+        value=access_token,
+        httponly=True,
+        max_age=int(access_token_expires.total_seconds()),
+        samesite="lax",
+    )
+    return response
+
 @api_router.get('/login/linuxdo')
 async def login_linuxdo(request: Request):
     """
@@ -114,6 +170,23 @@ async def logout():
 @api_router.get("/live/players")
 async def get_live_players():
     """Returns a list of the most recently active players for the live view."""
+    # Check if live view is enabled via runtime config
+    try:
+        config = runtime_config.get_runtime_config()
+        live_view_enabled = config.get("feature_flags", {}).get("live_view_enabled")
+        
+        # Only block if explicitly set to false
+        if live_view_enabled is False:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Live view is disabled"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # If config reading fails, log but allow access (fail-open for availability)
+        logging.warning(f"Failed to check live_view_enabled flag: {e}")
+    
     return state_manager.get_most_recent_sessions(limit=10)
 
 @api_router.post("/game/init")
@@ -206,6 +279,7 @@ async def live_websocket_endpoint(websocket: WebSocket):
 
 
 # --- Include API Router and Mount Static Files ---
+app.include_router(admin_router)
 app.include_router(api_router)
 app.include_router(root_router) # Include the root router before mounting static files
 static_files_dir = Path(__file__).parent.parent.parent / "frontend"
@@ -216,6 +290,8 @@ generated_images_dir.mkdir(parents=True, exist_ok=True)
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Redirect all 404 errors to the root page."""
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
     return RedirectResponse(url="/")
 
 app.mount(

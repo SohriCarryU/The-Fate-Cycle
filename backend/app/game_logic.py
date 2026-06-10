@@ -7,10 +7,9 @@ import time
 import traceback
 from copy import deepcopy
 from datetime import date
-from pathlib import Path
 from fastapi import HTTPException, status
 
-from . import state_manager, openai_client, cheat_check, redemption, image_store
+from . import state_manager, openai_client, cheat_check, redemption, image_store, runtime_config
 from .websocket_manager import manager as websocket_manager
 from .config import settings
 
@@ -24,22 +23,6 @@ REWARD_SCALING_FACTOR = 500000  # Previously LOGARITHM_CONSTANT_C
 # --- Image Generation State ---
 # 记录每个玩家的最后活动时间，用于判断是否触发图片生成
 _pending_image_tasks: dict[str, asyncio.Task] = {}
-
-
-# --- Prompt Loading ---
-def _load_prompt(filename: str) -> str:
-    try:
-        prompt_path = Path(__file__).parent / "prompts" / filename
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        logger.error(f"Prompt file not found: {filename}")
-        return ""
-
-
-GAME_MASTER_SYSTEM_PROMPT = _load_prompt("game_master.txt")
-START_GAME_PROMPT = _load_prompt("start_game_prompt.txt")
-START_TRIAL_PROMPT = _load_prompt("start_trial_prompt.txt")
 
 
 # --- Image Generation Logic ---
@@ -80,7 +63,11 @@ async def _delayed_image_generation(player_id: str, trigger_time: float):
     延迟图片生成任务。
     等待指定时间后，检查状态是否仍然静止，如果是则生成图片。
     """
-    idle_seconds = settings.IMAGE_GEN_IDLE_SECONDS
+    runtime = runtime_config.get_runtime_config()
+    idle_seconds = (
+        runtime.get("image_generation", {}).get("image_gen_idle_seconds")
+        or settings.IMAGE_GEN_IDLE_SECONDS
+    )
     
     try:
         await asyncio.sleep(idle_seconds)
@@ -201,7 +188,7 @@ async def get_or_create_daily_session(current_user: dict) -> dict:
         "pending_punishment": None,
         "unchecked_rounds_count": 0,
         "current_life": None,
-        "internal_history": [{"role": "system", "content": GAME_MASTER_SYSTEM_PROMPT}],
+        "internal_history": [{"role": "system", "content": runtime_config.load_prompt("game_master.txt")}],
         "display_history": [
             """
 # 《浮生十梦》
@@ -415,9 +402,9 @@ async def _process_player_action_async(user_info: dict, action: str):
             "\n".join(session_copy.get("display_history", []))
         )[-300:]
         prompt_for_ai = (
-            START_GAME_PROMPT
+            runtime_config.load_prompt("start_game_prompt.txt")
             if is_first_ever_trial_of_day
-            else START_TRIAL_PROMPT.format(
+            else runtime_config.load_prompt("start_trial_prompt.txt").format(
                 opportunities_remaining=session["opportunities_remaining"],
                 opportunities_remaining_minus_1=session["opportunities_remaining"] - 1,
             )
@@ -697,7 +684,7 @@ async def process_player_action(current_user: dict, action: str):
 """
             new_state["is_in_trial"], new_state["current_life"] = False, None
             new_state["internal_history"] = [
-                {"role": "system", "content": GAME_MASTER_SYSTEM_PROMPT}
+                {"role": "system", "content": runtime_config.load_prompt("game_master.txt")}
             ]
         elif level == "重度渎道":
             punishment_narrative = f"""【天道斥逐 · 放逐乱流】

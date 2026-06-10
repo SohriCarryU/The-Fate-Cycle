@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     LINUXDO_CLIENT_SECRET: str | None = None
     LINUXDO_SCOPE: str = "read"
 
+    # Simple Login Settings
+    SIMPLE_LOGIN_INVITE_CODE: str = ""
+    SIMPLE_LOGIN_ALLOW_EMPTY_INVITE: bool = False
+
+    # Admin Settings
+    ADMIN_PASSWORD: str | None = None
+    ADMIN_SESSION_COOKIE: str = "admin_token"
+    ADMIN_SESSION_EXPIRE_MINUTES: int = 120
+
     # Server Settings
     HOST: str = "127.0.0.1"
     PORT: int = 8000

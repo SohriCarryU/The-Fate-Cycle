@@ -20,6 +20,10 @@ const scrollState = {
 const DOMElements = {
     loginView: document.getElementById('login-view'),
     gameView: document.getElementById('game-view'),
+    loginForm: document.getElementById('login-form'),
+    loginUsername: document.getElementById('login-username'),
+    loginInviteCode: document.getElementById('login-invite-code'),
+    loginButton: document.getElementById('login-button'),
     loginError: document.getElementById('login-error'),
     logoutButton: document.getElementById('logout-button'),
     sceneBackgroundImage: document.getElementById('scene-background-image'),
@@ -44,6 +48,18 @@ const DOMElements = {
 
 // --- API Client ---
 const api = {
+    async loginSimple(username, inviteCode) {
+        const response = await fetch(`${API_BASE_URL}/login/simple`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, invite_code: inviteCode }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.detail || '登录失败');
+        }
+        return data;
+    },
     async initGame() {
         const response = await fetch(`${API_BASE_URL}/game/init`, {
             method: 'POST',
@@ -437,6 +453,25 @@ function handleLogout() {
     api.logout();
 }
 
+async function handleSimpleLogin(event) {
+    event.preventDefault();
+    const username = DOMElements.loginUsername.value.trim();
+    const inviteCode = DOMElements.loginInviteCode.value.trim();
+    DOMElements.loginError.textContent = '';
+    DOMElements.loginButton.disabled = true;
+
+    try {
+        await api.loginSimple(username, inviteCode);
+        appState.gameState = null;
+        scrollState.isFirstRender = true;
+        await initializeGame();
+    } catch (error) {
+        DOMElements.loginError.textContent = error.message || '登录失败';
+    } finally {
+        DOMElements.loginButton.disabled = false;
+    }
+}
+
 function handleAction(actionOverride = null) {
     const action = actionOverride || DOMElements.actionInput.value.trim();
     if (!action) return;
@@ -488,6 +523,7 @@ function init() {
     setupScrollInterruptListener(DOMElements.narrativeWindow);
 
     // Setup event listeners regardless of initial view
+    DOMElements.loginForm.addEventListener('submit', handleSimpleLogin);
     DOMElements.logoutButton.addEventListener('click', handleLogout);
     DOMElements.statusToggleButton.addEventListener('click', toggleStatusPanel);
     DOMElements.statusCloseButton.addEventListener('click', () => setStatusPanelCollapsed(true));

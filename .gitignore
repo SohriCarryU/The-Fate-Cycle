@@ -135,3 +135,19 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 game_data.json
+
+# Project-specific runtime data
+backend/.env
+.venv/
+game_data/
+game_data/config/runtime_config.json
+game_data/prompts/
+game_data/generated_images/
+game_data/sessions/
+game_data/index.json
+game_data/secrets/
+veloera.db
+*.db
+node_modules/
+*.tmp
+.ruff_cache/
