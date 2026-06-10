@@ -193,6 +193,20 @@ function renderJson(element, data) {
     element.textContent = JSON.stringify(data, null, 2);
 }
 
+function setRuntimeActionsDisabled(disabled) {
+    el.reloadConfigButton.disabled = disabled;
+    el.validateConfigButton.disabled = disabled;
+    el.saveConfigButton.disabled = disabled;
+}
+
+function getRuntimeEditorConfig() {
+    if (state.runtimeConfigMode === "form") {
+        const config = buildConfigFromForm();
+        el.runtimeConfigText.value = JSON.stringify(config, null, 2);
+    }
+    return parseRuntimeConfigText();
+}
+
 async function checkStatus() {
     try {
         const status = await api("/status");
@@ -234,6 +248,7 @@ async function logout() {
 }
 
 async function loadRuntimeConfig() {
+    setRuntimeActionsDisabled(true);
     setMessage(el.runtimeMessage, "Loading runtime config...");
     try {
         const data = await api("/runtime-config");
@@ -245,6 +260,8 @@ async function loadRuntimeConfig() {
         setMessage(el.runtimeMessage, "Runtime config loaded.", "success");
     } catch (error) {
         setMessage(el.runtimeMessage, error.message, "error");
+    } finally {
+        setRuntimeActionsDisabled(false);
     }
 }
 
@@ -325,13 +342,11 @@ function switchToJsonMode() {
 }
 
 async function validateRuntimeConfig() {
-    setMessage(el.runtimeMessage, "");
+    setRuntimeActionsDisabled(true);
+    setMessage(el.runtimeMessage, "Validating runtime config...");
+    el.runtimeResult.textContent = "";
     try {
-        if (state.runtimeConfigMode === "form") {
-            const config = buildConfigFromForm();
-            el.runtimeConfigText.value = JSON.stringify(config, null, 2);
-        }
-        const config = parseRuntimeConfigText();
+        const config = getRuntimeEditorConfig();
         const result = await api("/runtime-config/validate", {
             method: "POST",
             body: JSON.stringify({ config }),
@@ -340,17 +355,17 @@ async function validateRuntimeConfig() {
         setMessage(el.runtimeMessage, "Runtime config is valid.", "success");
     } catch (error) {
         setMessage(el.runtimeMessage, error.message, "error");
+    } finally {
+        setRuntimeActionsDisabled(false);
     }
 }
 
 async function saveRuntimeConfig() {
-    setMessage(el.runtimeMessage, "");
+    setRuntimeActionsDisabled(true);
+    setMessage(el.runtimeMessage, "Saving runtime config...");
+    el.runtimeResult.textContent = "";
     try {
-        if (state.runtimeConfigMode === "form") {
-            const config = buildConfigFromForm();
-            el.runtimeConfigText.value = JSON.stringify(config, null, 2);
-        }
-        const config = parseRuntimeConfigText();
+        const config = getRuntimeEditorConfig();
         const result = await api("/runtime-config", {
             method: "PUT",
             body: JSON.stringify({ config }),
@@ -361,6 +376,8 @@ async function saveRuntimeConfig() {
         setMessage(el.runtimeMessage, "Runtime config saved.", "success");
     } catch (error) {
         setMessage(el.runtimeMessage, error.message, "error");
+    } finally {
+        setRuntimeActionsDisabled(false);
     }
 }
 
