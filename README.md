@@ -223,7 +223,8 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 │   ├── live.css                 # Live 样式
 │   └── favicon.svg              # 网站图标
 ├── tests/
-│   └── frontend_layout_check.mjs # 前端布局检查
+│   ├── frontend_layout_check.mjs # 前端布局检查
+│   └── admin_console_check.mjs   # Admin 控制台检查
 ├── run.sh                       # 启动脚本
 ├── .gitignore                   # Git 忽略规则
 └── README.md                    # 本文件
@@ -248,6 +249,7 @@ python -m compileall backend/app
 
 # 运行前端布局检查
 node tests/frontend_layout_check.mjs
+node tests/admin_console_check.mjs
 
 # 运行后端测试
 pytest backend/tests/

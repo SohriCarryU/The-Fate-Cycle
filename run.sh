@@ -123,6 +123,8 @@ run_tests() {
     node --check frontend/admin.js
     echo "Running frontend layout check..."
     node tests/frontend_layout_check.mjs
+    echo "Running admin console check..."
+    node tests/admin_console_check.mjs
   else
     echo "Skipping frontend checks: node is not available on PATH." >&2
   fi
