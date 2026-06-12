@@ -5,6 +5,10 @@ const API_BASE_URL = "/api";
 const appState = {
     gameState: null,
     lastRollEventId: null,  // 用于检测骰子事件变化
+    isLoading: false,
+    isSendingAction: false,
+    connectionStatus: 'idle',
+    connectionMessage: '正在检查试玩会话...',
 };
 
 // --- Smooth Scroll State ---
@@ -24,8 +28,10 @@ const DOMElements = {
     loginUsername: document.getElementById('login-username'),
     loginInviteCode: document.getElementById('login-invite-code'),
     loginButton: document.getElementById('login-button'),
+    loginStatus: document.getElementById('login-status'),
     loginError: document.getElementById('login-error'),
     logoutButton: document.getElementById('logout-button'),
+    connectionBanner: document.getElementById('connection-banner'),
     sceneBackgroundImage: document.getElementById('scene-background-image'),
     statusToggleButton: document.getElementById('status-toggle-button'),
     statusCloseButton: document.getElementById('status-close-button'),
@@ -35,6 +41,7 @@ const DOMElements = {
     opportunitiesSpan: document.getElementById('opportunities'),
     actionInput: document.getElementById('action-input'),
     actionButton: document.getElementById('action-button'),
+    actionStatus: document.getElementById('action-status'),
     startTrialButton: document.getElementById('start-trial-button'),
     loadingSpinner: document.getElementById('loading-spinner'),
     rollOverlay: document.getElementById('roll-overlay'),
@@ -80,21 +87,33 @@ const api = {
 // --- WebSocket Manager ---
 const socketManager = {
     socket: null,
-    connect() {
+    connect({ reconnecting = false } = {}) {
         return new Promise((resolve, reject) => {
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                setConnectionStatus('connected', '已连接，可以继续试炼。');
                 resolve();
                 return;
             }
+            setConnectionStatus(
+                reconnecting ? 'reconnecting' : 'connecting',
+                reconnecting ? '连接中断，正在尝试重连...' : '正在连接命运之书...'
+            );
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.host;
             // The token is no longer in the URL; it's read from the cookie by the server.
             const wsUrl = `${protocol}//${host}${API_BASE_URL}/ws`;
-            this.socket = new WebSocket(wsUrl);
-            this.socket.binaryType = 'arraybuffer'; // Important for receiving binary data
+            const socket = new WebSocket(wsUrl);
+            this.socket = socket;
+            socket.binaryType = 'arraybuffer'; // Important for receiving binary data
+            let hasOpened = false;
 
-            this.socket.onopen = () => { console.log("WebSocket established."); resolve(); };
-            this.socket.onmessage = (event) => {
+            socket.onopen = () => {
+                hasOpened = true;
+                console.log("WebSocket established.");
+                setConnectionStatus('connected', '已连接，可以继续试炼。');
+                resolve();
+            };
+            socket.onmessage = (event) => {
                 let message;
                 // Check if the data is binary (ArrayBuffer)
                 if (event.data instanceof ArrayBuffer) {
@@ -113,6 +132,7 @@ const socketManager = {
                 
                 switch (message.type) {
                     case 'full_state':
+                        appState.isSendingAction = false;
                         appState.gameState = message.data;
                         checkAndShowRollEvent();
                         render();
@@ -121,6 +141,7 @@ const socketManager = {
                         // Apply JSON Patch
                         if (appState.gameState && message.patch) {
                             try {
+                                appState.isSendingAction = false;
                                 const result = jsonpatch.applyPatch(appState.gameState, message.patch, true, false);
                                 appState.gameState = result.newDocument;
                                 checkAndShowRollEvent();
@@ -131,20 +152,43 @@ const socketManager = {
                         }
                         break;
                     case 'error':
-                        alert(`WebSocket Error: ${message.detail}`);
+                        appState.isSendingAction = false;
+                        setConnectionStatus('error', message.detail || '服务器返回错误，请稍后再试。');
+                        updateActionControls();
                         break;
                 }
             };
-            this.socket.onclose = () => { console.log("Reconnecting..."); showLoading(true); setTimeout(() => this.connect(), 5000); };
-            this.socket.onerror = (error) => { console.error("WebSocket error:", error); DOMElements.loginError.textContent = '无法连接。'; reject(error); };
+            socket.onclose = () => {
+                if (this.socket !== socket) return;
+                appState.isSendingAction = false;
+                if (!hasOpened) {
+                    setConnectionStatus('disconnected', '无法连接服务器，请检查网络后重试。');
+                    reject(new Error('WebSocket closed before connecting'));
+                    return;
+                }
+                console.log("Reconnecting...");
+                setConnectionStatus('reconnecting', '连接中断，5 秒后自动重连。');
+                setTimeout(() => {
+                    this.connect({ reconnecting: true }).catch(() => {
+                        setConnectionStatus('disconnected', '重连失败，请稍后刷新页面。');
+                    });
+                }, 5000);
+            };
+            socket.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                if (!hasOpened) {
+                    setConnectionStatus('error', '无法连接服务器，请确认试玩地址可访问。');
+                }
+            };
         });
     },
     sendAction(action) {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify({ action }));
-        } else {
-            alert("连接已断开，请刷新。");
+            return true;
         }
+        setConnectionStatus('disconnected', '连接已断开，正在尝试重连。');
+        return false;
     }
 };
 
@@ -152,6 +196,119 @@ const socketManager = {
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById(viewId).classList.add('active');
+}
+
+function setConnectionStatus(status, message) {
+    appState.connectionStatus = status;
+    appState.connectionMessage = message;
+    renderConnectionStatus();
+    updateActionControls();
+}
+
+function getEffectiveConnectionStatus() {
+    return appState.isSendingAction ? 'sending' : appState.connectionStatus;
+}
+
+function renderConnectionStatus() {
+    if (!DOMElements.connectionBanner) return;
+    const status = getEffectiveConnectionStatus();
+    const fallbackMessages = {
+        idle: '正在检查试玩会话...',
+        connecting: '正在连接命运之书...',
+        connected: '已连接，可以继续试炼。',
+        reconnecting: '连接中断，正在尝试重连...',
+        disconnected: '连接已断开，请稍后重试。',
+        error: '连接出现问题，请稍后重试。',
+        sending: '行动已送出，等待命运回应...',
+    };
+    DOMElements.connectionBanner.textContent = status === 'sending'
+        ? fallbackMessages.sending
+        : (appState.connectionMessage || fallbackMessages[status] || fallbackMessages.idle);
+    DOMElements.connectionBanner.className = `connection-banner connection-${status}`;
+}
+
+function setLoginBusy(isBusy) {
+    DOMElements.loginButton.disabled = isBusy;
+    DOMElements.loginButton.textContent = isBusy ? '进入中...' : '进入试炼';
+    DOMElements.loginStatus.textContent = isBusy ? '正在进入试玩会话...' : '';
+}
+
+function formatLoginError(error) {
+    const message = error?.message || '';
+    if (/invalid invite code/i.test(message)) {
+        return '邀请码不正确，请确认朋友分享的试玩码。';
+    }
+    if (/failed to fetch|network/i.test(message)) {
+        return '无法连接服务器，请确认试玩地址可访问。';
+    }
+    if (/username|道号/i.test(message)) {
+        return message;
+    }
+    return message || '登录失败，请稍后再试。';
+}
+
+function canUseConnection() {
+    return appState.connectionStatus === 'connected';
+}
+
+function canSendAction(isStartTrialAction) {
+    if (!appState.gameState) return false;
+    if (!canUseConnection() || appState.isLoading || appState.isSendingAction || appState.gameState.is_processing) {
+        return false;
+    }
+    const { is_in_trial, daily_success_achieved, opportunities_remaining } = appState.gameState;
+    if (isStartTrialAction) {
+        return !is_in_trial && !daily_success_achieved && opportunities_remaining > 0;
+    }
+    return Boolean(is_in_trial);
+}
+
+function getActionStatusMessage() {
+    if (!appState.gameState) {
+        return '正在载入试玩会话...';
+    }
+    if (appState.isSendingAction) {
+        return '行动已送出，等待命运回应...';
+    }
+    if (appState.gameState.is_processing) {
+        return '命运正在回应，请稍候...';
+    }
+    if (appState.connectionStatus === 'idle') {
+        return '正在建立实时连接...';
+    }
+    if (appState.connectionStatus === 'connecting') {
+        return '正在连接命运之书...';
+    }
+    if (appState.connectionStatus === 'reconnecting') {
+        return '连接中断，正在自动重连；重连前不能提交行动。';
+    }
+    if (appState.connectionStatus === 'disconnected' || appState.connectionStatus === 'error') {
+        return appState.connectionMessage || '连接不可用，请稍后重试。';
+    }
+
+    const { is_in_trial, daily_success_achieved, opportunities_remaining } = appState.gameState;
+    if (daily_success_achieved) {
+        return '今日功德圆满，明日可再入梦。';
+    }
+    if (!is_in_trial && opportunities_remaining <= 0) {
+        return '今日机缘已尽，明日可再试炼。';
+    }
+    if (!is_in_trial) {
+        return opportunities_remaining === 10 ? '准备好后开始第一次试炼。' : '可开启下一次试炼。';
+    }
+    return '输入你要采取的行动，按 Enter 或点击「定」。';
+}
+
+function updateActionControls() {
+    const canAct = canSendAction(false);
+    const canStartTrial = canSendAction(true);
+    DOMElements.actionInput.disabled = !canAct;
+    DOMElements.actionButton.disabled = !canAct;
+    DOMElements.startTrialButton.disabled = !canStartTrial;
+    DOMElements.actionButton.textContent = (appState.isLoading || appState.isSendingAction || appState.gameState?.is_processing)
+        ? '等待'
+        : '定';
+    DOMElements.actionStatus.textContent = getActionStatusMessage();
 }
 
 function renderMarkdownSafe(markdownText) {
@@ -265,28 +422,17 @@ function setupScrollInterruptListener(element) {
 }
 
 function showLoading(isLoading) {
+    appState.isLoading = isLoading;
     // 只在初始化时显示全屏加载（gameState 为空时）
     const showFullscreenSpinner = isLoading && !appState.gameState;
     DOMElements.loadingSpinner.style.display = showFullscreenSpinner ? 'flex' : 'none';
-    
-    const isProcessing = appState.gameState ? appState.gameState.is_processing : false;
-    const buttonsDisabled = isLoading || isProcessing;
-    // DOMElements.loginButton is removed
-    DOMElements.actionInput.disabled = buttonsDisabled;
-    DOMElements.actionButton.disabled = buttonsDisabled;
-    DOMElements.startTrialButton.disabled = buttonsDisabled;
-    
-    // 在按钮上显示加载状态
-    if (buttonsDisabled && appState.gameState) {
-        DOMElements.actionButton.textContent = '⏳';
-    } else {
-        DOMElements.actionButton.textContent = '定';
-    }
+    updateActionControls();
 }
 
 function render() {
     if (!appState.gameState) { showLoading(true); return; }
     showLoading(appState.gameState.is_processing);
+    renderConnectionStatus();
     DOMElements.opportunitiesSpan.textContent = appState.gameState.opportunities_remaining;
     renderCharacterStatus();
 
@@ -311,24 +457,22 @@ function render() {
     }
     
     const { is_in_trial, daily_success_achieved, opportunities_remaining } = appState.gameState;
-    DOMElements.actionInput.parentElement.classList.toggle('hidden', !(is_in_trial || daily_success_achieved || opportunities_remaining < 0));
+    DOMElements.actionInput.parentElement.classList.toggle('hidden', !is_in_trial);
     const startButton = DOMElements.startTrialButton;
-    startButton.classList.toggle('hidden', is_in_trial || daily_success_achieved || opportunities_remaining < 0);
+    startButton.classList.toggle('hidden', is_in_trial || daily_success_achieved);
 
     if (daily_success_achieved) {
          startButton.textContent = "今日功德圆满";
-         startButton.disabled = true;
     } else if (opportunities_remaining <= 0) {
         startButton.textContent = "机缘已尽";
-        startButton.disabled = true;
     } else {
         if (opportunities_remaining === 10) {
             startButton.textContent = "开始第一次试炼";
         } else {
             startButton.textContent = "开启下一次试炼";
         }
-        startButton.disabled = appState.gameState.is_processing;
     }
+    updateActionControls();
 }
 
 function scheduleSceneBackgroundUpdate() {
@@ -458,7 +602,7 @@ async function handleSimpleLogin(event) {
     const username = DOMElements.loginUsername.value.trim();
     const inviteCode = DOMElements.loginInviteCode.value.trim();
     DOMElements.loginError.textContent = '';
-    DOMElements.loginButton.disabled = true;
+    setLoginBusy(true);
 
     try {
         await api.loginSimple(username, inviteCode);
@@ -466,26 +610,31 @@ async function handleSimpleLogin(event) {
         scrollState.isFirstRender = true;
         await initializeGame();
     } catch (error) {
-        DOMElements.loginError.textContent = error.message || '登录失败';
+        DOMElements.loginError.textContent = formatLoginError(error);
     } finally {
-        DOMElements.loginButton.disabled = false;
+        setLoginBusy(false);
     }
 }
 
 function handleAction(actionOverride = null) {
     const action = actionOverride || DOMElements.actionInput.value.trim();
     if (!action) return;
+    const isStartTrialAction = action === "开始试炼";
 
-    // Special case for starting a trial to prevent getting locked out by is_processing flag
-    if (action === "开始试炼") {
-        // Allow starting a new trial even if the previous async task is in its finally block
-    } else {
-        // For all other actions, prevent sending if another action is in flight.
-        if (appState.gameState && appState.gameState.is_processing) return;
+    if (!canSendAction(isStartTrialAction)) {
+        updateActionControls();
+        return;
     }
 
+    const sent = socketManager.sendAction(action);
+    if (!sent) {
+        updateActionControls();
+        return;
+    }
+    appState.isSendingAction = true;
     DOMElements.actionInput.value = '';
-    socketManager.sendAction(action);
+    renderConnectionStatus();
+    updateActionControls();
 }
 
 // --- Initialization ---
@@ -496,14 +645,19 @@ async function initializeGame() {
         appState.gameState = initialState;
         render();
         showView('game-view');
-        await socketManager.connect();
-        console.log("Initialization complete and WebSocket is ready.");
+        const connected = await socketManager.connect().then(() => true).catch((error) => {
+            console.error(`WebSocket initialization failed: ${error.message}`);
+            return false;
+        });
+        if (connected) console.log("Initialization complete and WebSocket is ready.");
     } catch (error) {
         // If init fails (e.g. no valid cookie), just show the login view.
         // The api.initGame function no longer redirects, it just throws an error.
         showView('login-view');
+        setConnectionStatus('idle', '正在检查试玩会话...');
         if (error.message !== 'Unauthorized') {
              console.error(`Session initialization failed: ${error.message}`);
+             DOMElements.loginError.textContent = '无法载入试玩会话，请稍后再试。';
         }
     } finally {
         // Ensure spinner is hidden regardless of outcome

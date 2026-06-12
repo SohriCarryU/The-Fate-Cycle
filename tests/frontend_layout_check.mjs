@@ -8,11 +8,19 @@ const js = readFileSync("frontend/index.js", "utf8");
 assert.match(html, /id="status-toggle-button"/, "status toggle button should exist");
 assert.match(html, /aria-controls="status-panel"/, "status toggle should target status panel");
 assert.match(html, /id="scene-background-image"/, "scene background should use a real image element for large data URLs");
+assert.match(html, /id="login-help"/, "friend playtest login help should exist");
+assert.match(html, /id="login-status"/, "login loading status should exist");
+assert.match(html, /id="connection-banner"/, "inline connection banner should exist");
+assert.match(html, /id="action-status"/, "action availability status should exist");
 assert.doesNotMatch(html, /id="fullscreen-button"/, "fullscreen button should be removed");
 
 assert.match(css, /#app-container\s*{[^}]*height:\s*100vh/s, "app should default to viewport height");
 assert.match(css, /#app-container\s*{[^}]*max-width:\s*none/s, "app should default to full viewport width");
 assert.match(css, /#game-view\.status-collapsed\s*{[^}]*grid-template-columns:\s*48px\s+1fr/s, "desktop collapsed status rail should keep the status panel on the left");
+assert.match(css, /#connection-banner\s*{[^}]*grid-area:\s*connection/s, "connection banner should own a stable grid row");
+assert.match(css, /\.connection-reconnecting::before/, "reconnecting state should have a visible connection indicator");
+assert.match(css, /\.connection-sending::before/, "sending state should have a visible connection indicator");
+assert.match(css, /\.action-status\s*{[^}]*min-height:/s, "action status text should reserve stable space");
 assert.match(css, /@media\s*\(max-width:\s*850px\)[\s\S]*#status-panel\s*{[^}]*position:\s*absolute/s, "mobile status panel should overlay instead of consuming layout rows");
 assert.match(css, /@media\s*\(max-width:\s*850px\)[\s\S]*#game-view\.status-collapsed\s+#status-panel/s, "mobile collapsed status panel should be hidden off-canvas");
 assert.match(css, /#scene-background-image\s*{[^}]*position:\s*fixed/s, "scene background image should be fixed behind the app");
@@ -22,6 +30,17 @@ assert.match(css, /body\.has-scene-background\s+#scene-background-image\s*{[^}]*
 assert.match(css, /#app-container\s*{[^}]*z-index:\s*1/s, "app content should render above the scene background layer");
 
 assert.match(js, /statusToggleButton:\s*document\.getElementById\('status-toggle-button'\)/, "status toggle should be wired in DOMElements");
+assert.match(js, /connectionBanner:\s*document\.getElementById\('connection-banner'\)/, "connection banner should be wired in DOMElements");
+assert.match(js, /actionStatus:\s*document\.getElementById\('action-status'\)/, "action status should be wired in DOMElements");
+assert.match(js, /loginStatus:\s*document\.getElementById\('login-status'\)/, "login status should be wired in DOMElements");
+assert.match(js, /connectionStatus:\s*'idle'/, "connection state should be tracked");
+assert.match(js, /isSendingAction:\s*false/, "sending state should be tracked");
+assert.match(js, /function setConnectionStatus\(/, "connection status helper should exist");
+assert.match(js, /function updateActionControls\(/, "action controls should have a shared availability helper");
+assert.match(js, /function formatLoginError\(/, "login errors should be translated into player-facing messages");
+assert.match(js, /setConnectionStatus\('reconnecting'/, "WebSocket close should surface reconnecting state");
+assert.match(js, /appState\.isSendingAction\s*=\s*true/, "sending actions should update player-visible state");
+assert.doesNotMatch(js, /alert\(/, "player-facing WebSocket errors should not use blocking alerts");
 assert.match(js, /function toggleStatusPanel\(\)/, "status panel toggle handler should exist");
 assert.match(js, /window\.matchMedia\('\(max-width: 850px\)'\)\.matches/, "mobile should start with the status panel collapsed");
 assert.match(js, /function scheduleSceneBackgroundUpdate\(\)/, "scene background update should be scheduled after DOM rendering");

@@ -32,12 +32,14 @@
         <div id="login-view" class="view active">
             <h1>浮生十梦</h1>
             <p>此乃试炼之地，请先表明身份。</p>
+            <p id="login-help" class="login-help">朋友试玩：输入一个 2-32 位道号；如果房主给了邀请码，也请一并填写。</p>
             <form id="login-form">
                 <input type="text" id="login-username" name="username" maxlength="32" autocomplete="username" placeholder="道号" required>
                 <input type="password" id="login-invite-code" name="invite_code" autocomplete="off" placeholder="邀请码">
                 <button type="submit" id="login-button" class="login-button">进入试炼</button>
+                <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
             </form>
-            <p id="login-error" class="error-message"></p>
+            <p id="login-error" class="error-message" role="alert"></p>
         </div>
 
         <!-- Game View -->
@@ -50,6 +52,7 @@
                     <button id="logout-button" class="header-button">登出</button>
                 </div>
             </header>
+            <div id="connection-banner" class="connection-banner connection-idle" role="status" aria-live="polite">正在检查试玩会话...</div>
 
             <aside id="status-panel">
                 <!-- Character status will be rendered here -->
@@ -68,6 +71,7 @@
             </main>
 
             <footer id="action-area">
+                <p id="action-status" class="action-status" role="status" aria-live="polite"></p>
                 <div class="action-input-row">
                     <input type="text" id="action-input" placeholder="汝欲何为..." disabled>
                     <button id="action-button" disabled>定</button>

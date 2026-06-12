@@ -185,6 +185,15 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 - **游戏首页**: `http://localhost:8000`
 - **Admin 后台**: `http://localhost:8000/admin.html` (需要 ADMIN_PASSWORD)
 
+### 6. 朋友试玩 Quickstart
+
+若要让同一局域网内的朋友试玩：
+
+1. 在 `backend/.env` 中设置 `HOST="0.0.0.0"`，并设置一个临时 `SIMPLE_LOGIN_INVITE_CODE`。
+2. 启动服务后，把 `http://<你的局域网IP>:8000` 和邀请码发给试玩者。
+3. 试玩者只需要填写一个道号和邀请码即可进入；不要把 Admin 密码、API key、数据库文件或任何 `.env` 内容发给试玩者。
+4. 试玩结束后可以更换或清空邀请码。
+
 ## 📁 项目结构
 
 ```

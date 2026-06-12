@@ -118,6 +118,12 @@ body.has-scene-background #scene-background-image {
     margin-bottom: 2.5rem;
 }
 
+.login-help {
+    max-width: 32rem;
+    margin: -1.3rem auto 1.6rem;
+    line-height: 1.7;
+}
+
 #login-form {
     background: var(--panel-bg);
     padding: 2.5rem;
@@ -173,10 +179,21 @@ body.has-scene-background #scene-background-image {
     color: white;
 }
 
+.login-status {
+    min-height: 1.4rem;
+    margin: 1rem 0 0;
+    color: var(--primary-color);
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    text-shadow: none;
+}
+
 .error-message {
     color: var(--accent-color);
-    height: 1.5rem;
+    min-height: 1.5rem;
+    max-width: 28rem;
     font-weight: bold;
+    line-height: 1.5;
 }
 
 /* --- Game View: Lattice Window Layout --- */
@@ -184,9 +201,10 @@ body.has-scene-background #scene-background-image {
     padding: 0;
     display: grid;
     grid-template-columns: minmax(240px, 28vw) minmax(0, 1fr);
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr auto;
     grid-template-areas:
         "header header"
+        "connection connection"
         "status main"
         "status action";
     gap: 2px;
@@ -197,12 +215,13 @@ body.has-scene-background #scene-background-image {
     grid-template-columns: 48px 1fr;
 }
 
-#game-header, #status-panel, #main-content, #action-area {
+#game-header, #connection-banner, #status-panel, #main-content, #action-area {
     background: var(--panel-bg);
     padding: 1rem;
 }
 
 body.has-scene-background #game-header,
+body.has-scene-background #connection-banner,
 body.has-scene-background #status-panel,
 body.has-scene-background #main-content,
 body.has-scene-background #action-area {
@@ -221,6 +240,46 @@ body.has-scene-background #action-area {
     font-family: var(--font-sans);
     font-size: 1.8rem;
     color: var(--title-color);
+}
+
+#connection-banner {
+    grid-area: connection;
+    border-top: 2px solid #5a4a3a;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-color);
+}
+
+.connection-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.connection-banner::before {
+    content: "";
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 999px;
+    background: #888;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
+    flex: 0 0 auto;
+}
+
+.connection-connected::before {
+    background: var(--primary-color);
+}
+
+.connection-sending::before,
+.connection-connecting::before,
+.connection-reconnecting::before {
+    background: #b78735;
+}
+
+.connection-disconnected::before,
+.connection-error::before {
+    background: var(--accent-color);
 }
 
 .header-button {
@@ -449,6 +508,15 @@ body.has-scene-background #action-area {
     gap: 1rem;
 }
 
+.action-status {
+    min-height: 1.4rem;
+    margin: 0;
+    color: var(--text-color);
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
 .action-input-row {
     display: flex;
     gap: 0.8rem;
@@ -498,7 +566,7 @@ body.has-scene-background #action-area {
     background: #c95c53;
 }
 
-#action-input:disabled, #action-button:disabled {
+#action-input:disabled, #action-button:disabled, #start-trial-button:disabled {
     background: #e9e9e9;
     color: #999;
     cursor: not-allowed;
@@ -584,9 +652,10 @@ body.has-scene-background #action-area {
     }
     #game-view {
         grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr auto;
+        grid-template-rows: auto auto 1fr auto;
         grid-template-areas:
             "header"
+            "connection"
             "main"
             "action";
         position: relative;
