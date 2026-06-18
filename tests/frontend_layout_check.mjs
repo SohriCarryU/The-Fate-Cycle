@@ -11,6 +11,8 @@ assert.match(html, /id="scene-background-image"/, "scene background should use a
 assert.match(html, /id="login-help"/, "friend playtest login help should exist");
 assert.match(html, /id="login-status"/, "login loading status should exist");
 assert.match(html, /id="connection-banner"/, "inline connection banner should exist");
+assert.match(html, /id="connection-banner"[^>]*aria-atomic="true"/, "connection banner should announce complete status text");
+assert.match(html, /id="connection-banner"[^>]*data-status="idle"/, "connection banner should expose an initial status");
 assert.match(html, /id="action-status"/, "action availability status should exist");
 assert.doesNotMatch(html, /id="fullscreen-button"/, "fullscreen button should be removed");
 
@@ -18,8 +20,11 @@ assert.match(css, /#app-container\s*{[^}]*height:\s*100vh/s, "app should default
 assert.match(css, /#app-container\s*{[^}]*max-width:\s*none/s, "app should default to full viewport width");
 assert.match(css, /#game-view\.status-collapsed\s*{[^}]*grid-template-columns:\s*48px\s+1fr/s, "desktop collapsed status rail should keep the status panel on the left");
 assert.match(css, /#connection-banner\s*{[^}]*grid-area:\s*connection/s, "connection banner should own a stable grid row");
+assert.match(css, /#connection-banner\s*{[^}]*min-height:/s, "connection banner should reserve stable vertical space");
+assert.match(css, /\.connection-connected\s*{[^}]*border-left:\s*4px\s+solid\s+var\(--primary-color\)/s, "connected banner state should be visually distinct");
 assert.match(css, /\.connection-reconnecting::before/, "reconnecting state should have a visible connection indicator");
 assert.match(css, /\.connection-sending::before/, "sending state should have a visible connection indicator");
+assert.match(css, /\.connection-disconnected,\s*[\r\n]+\.connection-error\s*{[^}]*border-left:\s*4px\s+solid\s+var\(--accent-color\)/s, "error banner states should be visually distinct");
 assert.match(css, /\.action-status\s*{[^}]*min-height:/s, "action status text should reserve stable space");
 assert.match(css, /#login-form input:disabled\s*{[^}]*cursor:\s*not-allowed/s, "login inputs should look disabled while submitting");
 assert.match(css, /@media\s*\(max-width:\s*850px\)[\s\S]*#status-panel\s*{[^}]*position:\s*absolute/s, "mobile status panel should overlay instead of consuming layout rows");
@@ -35,6 +40,7 @@ assert.match(js, /connectionBanner:\s*document\.getElementById\('connection-bann
 assert.match(js, /actionStatus:\s*document\.getElementById\('action-status'\)/, "action status should be wired in DOMElements");
 assert.match(js, /loginStatus:\s*document\.getElementById\('login-status'\)/, "login status should be wired in DOMElements");
 assert.match(js, /connectionStatus:\s*'idle'/, "connection state should be tracked");
+assert.match(js, /const CONNECTION_MESSAGES\s*=\s*{/, "connection status copy should be centralized");
 assert.match(js, /isLoggingIn:\s*false/, "login submission state should be tracked");
 assert.match(js, /isSendingAction:\s*false/, "sending state should be tracked");
 assert.match(js, /function setConnectionStatus\(/, "connection status helper should exist");
@@ -45,9 +51,13 @@ assert.match(js, /DOMElements\.loginInviteCode\.disabled\s*=\s*isBusy/, "invite 
 assert.match(js, /if \(appState\.isLoggingIn\) return;/, "login submission should guard against duplicate submits");
 assert.match(js, /请先填写一个道号。/, "blank usernames should get a friendly client-side message");
 assert.match(js, /setConnectionStatus\('reconnecting'/, "WebSocket close should surface reconnecting state");
+assert.match(js, /setConnectionStatus\('disconnected',\s*'无法连接服务器，请检查网络后重试。'\)/, "failed WebSocket startup should be shown to players");
+assert.match(js, /setConnectionStatus\('error',\s*'连接出现问题，请稍后重试。'\)/, "WebSocket runtime errors should be shown without raw details");
 assert.match(js, /WebSocket message error received\./, "server error details should not be shown directly");
 assert.match(js, /命运记录暂时无法回应，请稍后再试。/, "server error messages should be player-facing");
 assert.match(js, /appState\.isSendingAction\s*=\s*true/, "sending actions should update player-visible state");
+assert.match(js, /dataset\.status\s*=\s*status/, "connection banner should expose its effective status");
+assert.match(js, /aria-busy',\s*String\(\['connecting', 'reconnecting', 'sending'\]\.includes\(status\)\)/, "busy connection states should expose aria-busy");
 assert.doesNotMatch(js, /alert\(/, "player-facing WebSocket errors should not use blocking alerts");
 assert.match(js, /if \(daily_success_achieved\) \{\s*return false;\s*\}/s, "daily completion should disable player actions");
 assert.match(js, /startButton\.classList\.toggle\('hidden', is_in_trial\)/, "daily completion should leave a stable terminal start button visible and disabled");

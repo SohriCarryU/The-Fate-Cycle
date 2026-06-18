@@ -12,6 +12,16 @@ const appState = {
     connectionMessage: '正在检查试玩会话...',
 };
 
+const CONNECTION_MESSAGES = {
+    idle: '正在检查试玩会话...',
+    connecting: '正在连接命运之书...',
+    connected: '已连接，可以继续试炼。',
+    reconnecting: '连接中断，正在尝试重连...',
+    disconnected: '连接已断开，请稍后刷新页面。',
+    error: '连接出现问题，请稍后重试。',
+    sending: '行动已送出，等待命运回应...',
+};
+
 // --- Smooth Scroll State ---
 const scrollState = {
     animationId: null,
@@ -180,7 +190,10 @@ const socketManager = {
                 console.error("WebSocket error:", error);
                 if (!hasOpened) {
                     setConnectionStatus('error', '无法连接服务器，请确认试玩地址可访问。');
+                    return;
                 }
+                appState.isSendingAction = false;
+                setConnectionStatus('error', '连接出现问题，请稍后重试。');
             };
         });
     },
@@ -202,7 +215,7 @@ function showView(viewId) {
 
 function setConnectionStatus(status, message) {
     appState.connectionStatus = status;
-    appState.connectionMessage = message;
+    appState.connectionMessage = message || CONNECTION_MESSAGES[status] || CONNECTION_MESSAGES.idle;
     renderConnectionStatus();
     updateActionControls();
 }
@@ -214,19 +227,12 @@ function getEffectiveConnectionStatus() {
 function renderConnectionStatus() {
     if (!DOMElements.connectionBanner) return;
     const status = getEffectiveConnectionStatus();
-    const fallbackMessages = {
-        idle: '正在检查试玩会话...',
-        connecting: '正在连接命运之书...',
-        connected: '已连接，可以继续试炼。',
-        reconnecting: '连接中断，正在尝试重连...',
-        disconnected: '连接已断开，请稍后重试。',
-        error: '连接出现问题，请稍后重试。',
-        sending: '行动已送出，等待命运回应...',
-    };
     DOMElements.connectionBanner.textContent = status === 'sending'
-        ? fallbackMessages.sending
-        : (appState.connectionMessage || fallbackMessages[status] || fallbackMessages.idle);
+        ? CONNECTION_MESSAGES.sending
+        : (appState.connectionMessage || CONNECTION_MESSAGES[status] || CONNECTION_MESSAGES.idle);
     DOMElements.connectionBanner.className = `connection-banner connection-${status}`;
+    DOMElements.connectionBanner.dataset.status = status;
+    DOMElements.connectionBanner.setAttribute('aria-busy', String(['connecting', 'reconnecting', 'sending'].includes(status)));
 }
 
 function setLoginBusy(isBusy) {
@@ -291,7 +297,7 @@ function getActionStatusMessage() {
         return '连接中断，正在自动重连；重连前不能提交行动。';
     }
     if (appState.connectionStatus === 'disconnected' || appState.connectionStatus === 'error') {
-        return appState.connectionMessage || '连接不可用，请稍后重试。';
+        return appState.connectionMessage || CONNECTION_MESSAGES[appState.connectionStatus];
     }
 
     const { is_in_trial, daily_success_achieved, opportunities_remaining } = appState.gameState;

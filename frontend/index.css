@@ -255,6 +255,7 @@ body.has-scene-background #action-area {
     font-size: 0.95rem;
     line-height: 1.5;
     color: var(--text-color);
+    min-height: 1.45rem;
 }
 
 .connection-banner {
@@ -277,15 +278,30 @@ body.has-scene-background #action-area {
     background: var(--primary-color);
 }
 
+.connection-connected {
+    border-left: 4px solid var(--primary-color);
+}
+
 .connection-sending::before,
 .connection-connecting::before,
 .connection-reconnecting::before {
     background: #b78735;
 }
 
+.connection-sending,
+.connection-connecting,
+.connection-reconnecting {
+    border-left: 4px solid #b78735;
+}
+
 .connection-disconnected::before,
 .connection-error::before {
     background: var(--accent-color);
+}
+
+.connection-disconnected,
+.connection-error {
+    border-left: 4px solid var(--accent-color);
 }
 
 .header-button {
