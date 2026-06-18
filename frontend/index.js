@@ -6,6 +6,7 @@ const appState = {
     gameState: null,
     lastRollEventId: null,  // 用于检测骰子事件变化
     isLoading: false,
+    isLoggingIn: false,
     isSendingAction: false,
     connectionStatus: 'idle',
     connectionMessage: '正在检查试玩会话...',
@@ -153,7 +154,8 @@ const socketManager = {
                         break;
                     case 'error':
                         appState.isSendingAction = false;
-                        setConnectionStatus('error', message.detail || '服务器返回错误，请稍后再试。');
+                        console.error('WebSocket message error received.');
+                        setConnectionStatus('error', '命运记录暂时无法回应，请稍后再试。');
                         updateActionControls();
                         break;
                 }
@@ -228,6 +230,9 @@ function renderConnectionStatus() {
 }
 
 function setLoginBusy(isBusy) {
+    appState.isLoggingIn = isBusy;
+    DOMElements.loginUsername.disabled = isBusy;
+    DOMElements.loginInviteCode.disabled = isBusy;
     DOMElements.loginButton.disabled = isBusy;
     DOMElements.loginButton.textContent = isBusy ? '进入中...' : '进入试炼';
     DOMElements.loginStatus.textContent = isBusy ? '正在进入试玩会话...' : '';
@@ -257,8 +262,11 @@ function canSendAction(isStartTrialAction) {
         return false;
     }
     const { is_in_trial, daily_success_achieved, opportunities_remaining } = appState.gameState;
+    if (daily_success_achieved) {
+        return false;
+    }
     if (isStartTrialAction) {
-        return !is_in_trial && !daily_success_achieved && opportunities_remaining > 0;
+        return !is_in_trial && opportunities_remaining > 0;
     }
     return Boolean(is_in_trial);
 }
@@ -459,10 +467,10 @@ function render() {
     const { is_in_trial, daily_success_achieved, opportunities_remaining } = appState.gameState;
     DOMElements.actionInput.parentElement.classList.toggle('hidden', !is_in_trial);
     const startButton = DOMElements.startTrialButton;
-    startButton.classList.toggle('hidden', is_in_trial || daily_success_achieved);
+    startButton.classList.toggle('hidden', is_in_trial);
 
     if (daily_success_achieved) {
-         startButton.textContent = "今日功德圆满";
+         startButton.textContent = "今日试炼已完成";
     } else if (opportunities_remaining <= 0) {
         startButton.textContent = "机缘已尽";
     } else {
@@ -599,9 +607,15 @@ function handleLogout() {
 
 async function handleSimpleLogin(event) {
     event.preventDefault();
+    if (appState.isLoggingIn) return;
     const username = DOMElements.loginUsername.value.trim();
     const inviteCode = DOMElements.loginInviteCode.value.trim();
     DOMElements.loginError.textContent = '';
+    if (!username) {
+        DOMElements.loginError.textContent = '请先填写一个道号。';
+        DOMElements.loginUsername.focus();
+        return;
+    }
     setLoginBusy(true);
 
     try {

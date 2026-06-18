@@ -154,6 +154,12 @@ body.has-scene-background #scene-background-image {
     box-shadow: 0 0 10px rgba(106, 139, 106, 0.5);
 }
 
+#login-form input:disabled {
+    background: #f1f1f1;
+    color: #777;
+    cursor: not-allowed;
+}
+
 .login-button {
     display: inline-block;
     padding: 0.8rem 2.5rem;
