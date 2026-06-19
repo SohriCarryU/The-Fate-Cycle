@@ -87,6 +87,7 @@ class FakeElement {
         this.checked = false;
         this.indeterminate = false;
         this.disabled = false;
+        this.attributes = new Map();
     }
 
     get textContent() {
@@ -107,8 +108,20 @@ class FakeElement {
         return node;
     }
 
+    get firstChild() {
+        return this.children[0] || null;
+    }
+
     addEventListener(type, handler) {
         this.listeners[type] = handler;
+    }
+
+    getAttribute(name) {
+        return this.attributes.get(name) || "";
+    }
+
+    setAttribute(name, value) {
+        this.attributes.set(name, String(value));
     }
 }
 
@@ -123,18 +136,31 @@ elements.get("players-empty").classList.add("hidden");
 let confirmResponse = true;
 const confirmMessages = [];
 const windowListeners = {};
+const storage = new Map();
 
 const context = vm.createContext({
     console,
     document: {
+        documentElement: new FakeElement("html"),
         getElementById(id) {
             return elements.get(id) || null;
         },
         createElement(tagName) {
             return new FakeElement(tagName);
         },
+        querySelector() {
+            return null;
+        },
         querySelectorAll() {
             return [];
+        },
+    },
+    localStorage: {
+        getItem(key) {
+            return storage.has(key) ? storage.get(key) : null;
+        },
+        setItem(key, value) {
+            storage.set(key, String(value));
         },
     },
     window: {
@@ -158,6 +184,14 @@ const context = vm.createContext({
 });
 
 vm.runInContext(js, context);
+
+assert.equal(vm.runInContext("translations.zh.Dashboard", context), "仪表盘", "admin translations should include Chinese labels");
+assert.equal(vm.runInContext('t("Dashboard")', context), "仪表盘", "t() should translate in the default Chinese locale");
+assert.doesNotThrow(() => vm.runInContext('setLanguage("en"); setLanguage("zh");', context), "setLanguage should be callable");
+assert.equal(typeof elements.get("language-toggle").listeners.click, "function", "language toggle should register a click handler");
+elements.get("language-toggle").listeners.click();
+assert.equal(storage.get("adminLanguage"), "en", "language toggle should persist the selected language");
+assert.equal(elements.get("language-toggle").textContent, "中文", "English mode should show the Chinese toggle label");
 
 assert.equal(typeof windowListeners.beforeunload, "function", "beforeunload handler should be registered");
 

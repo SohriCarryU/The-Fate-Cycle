@@ -1,9 +1,236 @@
 const API_BASE_URL = "/api/admin";
 const MAX_PROMPT_LENGTH = 200000;
+const LANGUAGE_STORAGE_KEY = "adminLanguage";
+
+const translations = {
+    zh: {
+        "The Fate Cycle Admin": "命运轮回后台",
+        "Management Console": "管理控制台",
+        "Checking...": "检查中...",
+        "Logout": "退出",
+        "Admin Login": "管理员登录",
+        "Password is sent only to the backend login API. It is not stored in localStorage or sessionStorage.": "密码只会发送到后端登录接口，不会存入 localStorage 或 sessionStorage。",
+        "Admin password": "管理员密码",
+        "Login": "登录",
+        "Dashboard": "仪表盘",
+        "Players": "玩家",
+        "LLM Config": "LLM 配置",
+        "Runtime Config": "运行时配置",
+        "Prompts": "提示词",
+        "LLM Test": "LLM 测试",
+        "System": "系统",
+        "Refresh Dashboard": "刷新仪表盘",
+        "LLM API": "LLM API",
+        "Checking LLM configuration...": "正在检查 LLM 配置...",
+        "Checking runtime config...": "正在检查运行时配置...",
+        "Checking system status...": "正在检查系统状态...",
+        "Loading player summary...": "正在加载玩家摘要...",
+        "Loading prompt summary...": "正在加载提示词摘要...",
+        "Refresh": "刷新",
+        "Summary": "摘要",
+        "Sessions": "会话",
+        "Active 24h": "24 小时活跃",
+        "Active 7d": "7 天活跃",
+        "Player List": "玩家列表",
+        "Player list filters": "玩家列表筛选",
+        "Search": "搜索",
+        "ID, status, chapter, source": "ID、状态、章节、来源",
+        "Activity": "活跃度",
+        "All players": "全部玩家",
+        "Inactive 7d": "7 天未活跃",
+        "Unknown activity": "未知活跃度",
+        "Clear": "清除",
+        "No players loaded": "尚未加载玩家",
+        "No players found": "未找到玩家",
+        "Warnings": "警告",
+        "LLM API Config": "LLM API 配置",
+        "Set the API key, base URL, and model names for LLM calls. The API key is stored server-side only and is never returned in full. Leave API Key blank to keep the existing key. Tick \"Clear API Key\" to remove it entirely.": "设置 LLM 调用使用的 API key、Base URL 和模型名。API key 只保存在服务端，永远不会完整返回。API Key 留空会保留现有 key；勾选“清除 API Key”会彻底移除。",
+        "Base URL": "Base URL",
+        "API Key": "API Key",
+        "Leave blank to keep existing key": "留空以保留现有 key",
+        "Clear API Key (requires confirmation)": "清除 API Key（需要确认）",
+        "Main Model": "主模型",
+        "Cheat Check Model": "反作弊模型",
+        "Load Config": "加载配置",
+        "Save Config": "保存配置",
+        "Test Connection": "测试连接",
+        "Form Mode": "表单模式",
+        "Advanced JSON": "高级 JSON",
+        "Do not put API keys, secrets, passwords, tokens, invite codes, or database URLs here. feature_flags and world_style are currently saved only; they do not change game behavior yet.": "不要在这里填写 API key、secret、password、token、邀请码或数据库 URL。feature_flags 和 world_style 目前只会保存，尚不会改变游戏行为。",
+        "LLM": "LLM",
+        "Image Generation": "图片生成",
+        "Image Model": "图片模型",
+        "Idle Seconds": "空闲秒数",
+        "Global Limit": "全局上限",
+        "Window Seconds": "窗口秒数",
+        "Feature Flags": "功能开关",
+        "Cheat Check Enabled": "启用反作弊检查",
+        "Image Generation Enabled": "启用图片生成",
+        "Live View Enabled": "启用 Live 观看",
+        "Redemption Enabled": "启用兑换码",
+        "World Style": "世界风格",
+        "Game Title": "游戏标题",
+        "GM Identity": "GM 身份",
+        "World Genre": "世界类型",
+        "Resource Name": "资源名称",
+        "Opportunity Name": "机会名称",
+        "Cycle Name": "轮回名称",
+        "End Action Name": "结束动作名称",
+        "Tone": "语气",
+        "Runtime config JSON": "运行时配置 JSON",
+        "Source": "来源",
+        "Exists": "存在",
+        "Reload": "重新加载",
+        "Validate": "验证",
+        "Save": "保存",
+        "Unsaved changes": "未保存的更改",
+        "Restart Policy": "重启策略",
+        "Some settings apply on the next call; secrets and API client settings still require backend restart.": "部分设置会在下次调用时生效；secret 和 API 客户端设置仍需要后端重启。",
+        "Prompt changes affect future calls only. Existing session history is not migrated automatically.": "提示词变更只影响未来调用；现有会话历史不会自动迁移。",
+        "Prompt": "提示词",
+        "Effective source": "生效来源",
+        "Default content (read only)": "默认内容（只读）",
+        "Override content (editable)": "覆盖内容（可编辑）",
+        "Effective content (read only)": "生效内容（只读）",
+        "Save Override": "保存覆盖",
+        "Reset to Default": "重置为默认",
+        "Delete Override": "删除覆盖",
+        "Low-cost ping only. This does not run game prompts, image generation, or gameplay logic.": "只执行低成本连通性测试，不会运行游戏提示词、图片生成或游戏逻辑。",
+        "Kind": "类型",
+        "Model override": "模型覆盖",
+        "Leave blank to use effective model": "留空以使用生效模型",
+        "Message": "消息",
+        "Test LLM": "测试 LLM",
+        "System Status": "系统状态",
+        "Refresh Status": "刷新状态",
+        "Application": "应用",
+        "Environment Configuration": "环境配置",
+        "Database": "数据库",
+        "Game Data": "游戏数据",
+        "Resource Counts": "资源计数",
+        "Admin disabled": "后台已禁用",
+        "Logged in": "已登录",
+        "Not logged in": "未登录",
+        "Not logged in or session expired.": "未登录或会话已过期。",
+        "Request failed with HTTP {status}": "请求失败，HTTP 状态码 {status}",
+        "Logged in.": "已登录。",
+        "Logged out.": "已退出。",
+        "Runtime config must be a JSON object.": "运行时配置必须是 JSON 对象。",
+        "Invalid JSON": "无效 JSON",
+        "Loading runtime config...": "正在加载运行时配置...",
+        "Runtime config loaded.": "运行时配置已加载。",
+        "Validating runtime config...": "正在验证运行时配置...",
+        "Runtime config is valid.": "运行时配置有效。",
+        "Saving runtime config...": "正在保存运行时配置...",
+        "Runtime config saved.": "运行时配置已保存。",
+        "Cannot switch to form mode: {message}": "无法切换到表单模式：{message}",
+        "Loading LLM config...": "正在加载 LLM 配置...",
+        "Loaded (source: {source}).": "已加载（来源：{source}）。",
+        "LLM config saved.": "LLM 配置已保存。",
+        "Testing LLM connection...": "正在测试 LLM 连接...",
+        "LLM connection OK.": "LLM 连接正常。",
+        "LLM test returned an error.": "LLM 测试返回错误。",
+        "Testing LLM...": "正在测试 LLM...",
+        "LLM test completed.": "LLM 测试完成。",
+        "Configured — ends in …{hint}. Leave blank to keep.": "已配置，末尾为 …{hint}。留空以保留。",
+        "Not configured. Enter API key to set.": "未配置。输入 API Key 以设置。",
+        "API key configured, last 4 chars: {hint}": "API Key 已配置，后 4 位：{hint}",
+        "No API key configured.": "未配置 API Key。",
+        "Loading prompts...": "正在加载提示词...",
+        "Prompts loaded.": "提示词已加载。",
+        "Loading prompt...": "正在加载提示词...",
+        "Prompt loaded.": "提示词已加载。",
+        "Prompt override saved.": "提示词覆盖已保存。",
+        "Prompt reset to default.": "提示词已重置为默认。",
+        "Prompt override deleted.": "提示词覆盖已删除。",
+        "Prompt content exceeds maximum length of {count} characters.": "提示词内容超过最大长度 {count} 个字符。",
+        "Reset \"{filename}\" to default? This will delete the override and cannot be undone.": "将“{filename}”重置为默认？这会删除覆盖内容且无法撤销。",
+        "Delete override for \"{filename}\"? This will restore the default prompt and cannot be undone.": "删除“{filename}”的覆盖内容？这会恢复默认提示词且无法撤销。",
+        "override": "覆盖",
+        "Loading system status...": "正在加载系统状态...",
+        "System status loaded.": "系统状态已加载。",
+        "Loading players...": "正在加载玩家...",
+        "Players loaded.": "玩家已加载。",
+        "Configured": "已配置",
+        "Not configured": "未配置",
+        "Available": "可用",
+        "Missing": "缺失",
+        "Error": "错误",
+        "No prompts found": "未找到提示词",
+        "Check installation or prompts directory.": "请检查安装或提示词目录。",
+        "Healthy": "健康",
+        "Check status": "检查状态",
+        "connected": "已连接",
+        "not connected": "未连接",
+        "exists": "存在",
+        "missing": "缺失",
+        "Total": "总数",
+        "Overrides": "覆盖",
+        "Env File": "环境文件",
+        ".env File": ".env 文件",
+        "Admin Enabled": "后台启用",
+        "Environment": "环境",
+        "Python": "Python",
+        "Platform": "平台",
+        "Working Dir": "工作目录",
+        "Connected": "已连接",
+        "Detail": "详情",
+        "Type": "类型",
+        "Root": "根目录",
+        "Config Dir": "配置目录",
+        "Prompts Dir": "提示词目录",
+        "Sessions Dir": "会话目录",
+        "Index": "索引",
+        "Images Dir": "图片目录",
+        "Secrets Dir": "密钥目录",
+        "LLM Secret": "LLM 密钥",
+        "Prompt Overrides": "提示词覆盖",
+        "Generated Images": "生成图片",
+        "Yes": "是",
+        "No": "否",
+        "OK": "正常",
+        "N/A": "无",
+        "Main": "主模型",
+        "Cheat Check": "反作弊",
+        "(not set)": "（未设置）",
+        "{count} prompt": "{count} 个提示词",
+        "{count} prompts": "{count} 个提示词",
+        "{count} player": "{count} 个玩家",
+        "{count} players": "{count} 个玩家",
+        "Showing all {count} {noun}": "显示全部 {count} 个{noun}",
+        "Showing {visible} of {total} players": "显示 {visible} / {total} 个玩家",
+        "player": "玩家",
+        "players": "玩家",
+        "Last Activity": "最后活跃",
+        "Chapter": "章节",
+        "Status": "状态",
+        "No metadata sources": "无元数据来源",
+        "No players match the current filters": "没有玩家匹配当前筛选",
+        "Refreshing...": "刷新中...",
+        "Clear the stored API key? The key cannot be recovered.": "清除已保存的 API Key？该 key 无法恢复。",
+        "Reload runtime config and discard unsaved changes?": "重新加载运行时配置并放弃未保存的更改？",
+        "You have unsaved runtime config changes. Leave this section without saving?": "运行时配置有未保存的更改。确定不保存就离开吗？",
+        "You have unsaved changes. Discard them and switch to another prompt?": "有未保存的更改。确定放弃并切换到其他提示词吗？",
+        "Prompt content cannot be empty or whitespace-only.": "提示词内容不能为空或只包含空白。",
+        "Hot effective": "热生效",
+        "Conditional hot effective": "有条件热生效",
+        "Restart required": "需要重启",
+        "Not allowed in runtime_config": "不允许写入 runtime_config",
+        "Notes": "备注",
+        "main": "main",
+        "cheat_check": "cheat_check"
+    },
+    en: {},
+};
+
+Object.keys(translations.zh).forEach((key) => {
+    translations.en[key] = key;
+});
 
 const state = {
     authenticated: false,
     adminEnabled: false,
+    authStatusKnown: false,
     selectedPrompt: null,
     activeSection: "dashboard",
     loadedPromptContent: "",
@@ -19,10 +246,13 @@ const state = {
         live_view_enabled: null,
         redemption_enabled: null,
     },
+    prompts: [],
     players: [],
+    language: "zh",
 };
 
 const el = {
+    languageToggle: document.getElementById("language-toggle"),
     logoutButton: document.getElementById("logout-button"),
     authStatus: document.getElementById("auth-status"),
     globalMessage: document.getElementById("global-message"),
@@ -129,13 +359,181 @@ const el = {
     systemWarningsPanel: document.getElementById("system-warnings-panel"),
 };
 
+function normalizeLanguage(language) {
+    return language === "en" ? "en" : "zh";
+}
+
+function t(key, replacements = {}) {
+    const language = normalizeLanguage(state.language);
+    let text = translations[language]?.[key] ?? translations.en[key] ?? key;
+    Object.entries(replacements).forEach(([name, value]) => {
+        text = text.replaceAll(`{${name}}`, String(value));
+    });
+    return text;
+}
+
+function getStoredTranslationReplacements(element) {
+    if (!element?.dataset?.i18nReplacements) return {};
+    try {
+        return JSON.parse(element.dataset.i18nReplacements);
+    } catch (_error) {
+        return {};
+    }
+}
+
+function setTranslatedText(element, key, replacements = {}) {
+    if (!element) return;
+    element.dataset.i18n = key;
+    element.dataset.i18nReplacements = JSON.stringify(replacements);
+    element.textContent = `${element.dataset.i18nPrefix || ""}${t(key, replacements)}${element.dataset.i18nSuffix || ""}`;
+}
+
+function setTranslatedStatus(element, icon, key, replacements = {}) {
+    if (!element) return;
+    element.dataset.i18nPrefix = `${icon} `;
+    setTranslatedText(element, key, replacements);
+}
+
+function createTranslatedValue(key, replacements = {}) {
+    const element = document.createElement("span");
+    setTranslatedText(element, key, replacements);
+    return element;
+}
+
+function setTranslatedPlaceholder(element, key, replacements = {}) {
+    if (!element) return;
+    element.dataset.i18nPlaceholder = key;
+    element.dataset.i18nPlaceholderReplacements = JSON.stringify(replacements);
+    element.placeholder = t(key, replacements);
+}
+
+function clearTranslationState(element) {
+    if (!element?.dataset) return;
+    delete element.dataset.i18n;
+    delete element.dataset.i18nReplacements;
+    delete element.dataset.i18nPrefix;
+    delete element.dataset.i18nSuffix;
+}
+
 function setMessage(element, text, type = "") {
+    clearTranslationState(element);
     element.textContent = text || "";
     element.classList.toggle("success", type === "success");
     element.classList.toggle("error", type === "error");
 }
 
+function setTranslatedMessage(element, key, type = "", replacements = {}) {
+    setTranslatedText(element, key, replacements);
+    element.classList.toggle("success", type === "success");
+    element.classList.toggle("error", type === "error");
+}
+
+function applyStaticTranslations() {
+    document.querySelectorAll("[data-i18n]").forEach((element) => {
+        element.textContent = `${element.dataset.i18nPrefix || ""}${t(element.dataset.i18n, getStoredTranslationReplacements(element))}${element.dataset.i18nSuffix || ""}`;
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+        let replacements = {};
+        try {
+            replacements = element.dataset.i18nPlaceholderReplacements
+                ? JSON.parse(element.dataset.i18nPlaceholderReplacements)
+                : {};
+        } catch (_error) {
+            replacements = {};
+        }
+        element.placeholder = t(element.dataset.i18nPlaceholder, replacements);
+    });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+        if (typeof element.setAttribute === "function") {
+            element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+        }
+    });
+    document.querySelectorAll("[data-i18n-template='Effective source']").forEach((element) => {
+        if (element.firstChild) {
+            element.firstChild.textContent = `${t("Effective source")}: `;
+        }
+    });
+    document.querySelectorAll("[data-i18n-label-prefix]").forEach((element) => {
+        const label = `${t(element.dataset.i18nLabelPrefix)}: `;
+        if (element.firstChild) {
+            element.firstChild.textContent = label;
+        }
+    });
+    if (document.documentElement) {
+        document.documentElement.lang = state.language === "en" ? "en" : "zh-CN";
+    }
+    if (el.languageToggle) {
+        el.languageToggle.textContent = state.language === "zh" ? "English" : "中文";
+        if (typeof el.languageToggle.setAttribute === "function") {
+            el.languageToggle.setAttribute("aria-label", state.language === "zh" ? "Switch to English" : "切换到中文");
+        }
+    }
+}
+
+function initializeStaticTranslations() {
+    document.querySelectorAll("title, h1, h2, h3, legend, button, .summary-label, .note, .header-subtitle, .dirty-indicator, .filter-count, .empty-state, label[for], label span, option").forEach((element) => {
+        const text = element.textContent.trim();
+        if (translations.zh[text]) {
+            element.dataset.i18n = text;
+        }
+    });
+    document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach((element) => {
+        const text = element.getAttribute("placeholder");
+        if (text && translations.zh[text]) {
+            element.dataset.i18nPlaceholder = text;
+        }
+    });
+    document.querySelectorAll("[aria-label]").forEach((element) => {
+        const text = element.getAttribute("aria-label");
+        if (text && translations.zh[text]) {
+            element.dataset.i18nAriaLabel = text;
+        }
+    });
+
+    const effectiveSourceLabel = document.querySelector("#prompt-editor p");
+    if (effectiveSourceLabel) {
+        effectiveSourceLabel.dataset.i18nTemplate = "Effective source";
+    }
+    document.querySelectorAll(".meta-row span").forEach((element) => {
+        const label = element.textContent.split(":")[0]?.trim();
+        if (translations.zh[label]) {
+            element.dataset.i18nLabelPrefix = label;
+        }
+    });
+    applyStaticTranslations();
+}
+
+function setLanguage(language) {
+    state.language = normalizeLanguage(language);
+    try {
+        localStorage.setItem(LANGUAGE_STORAGE_KEY, state.language);
+    } catch (_error) {
+        // Language switching still works for the current page when storage is unavailable.
+    }
+    applyStaticTranslations();
+    if (state.authStatusKnown) {
+        setAuthenticated(state.authenticated, state.adminEnabled);
+    }
+    updateRuntimeDirtyState();
+    updatePromptButtons();
+    if (state.prompts.length > 0) {
+        renderPromptList();
+    }
+    if (state.players.length > 0) {
+        applyPlayersFilters();
+    }
+}
+
+function loadStoredLanguage() {
+    try {
+        return normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY));
+    } catch (_error) {
+        return "zh";
+    }
+}
+
 function setAuthenticated(authenticated, adminEnabled = state.adminEnabled) {
+    state.authStatusKnown = true;
     state.authenticated = authenticated;
     state.adminEnabled = adminEnabled;
     el.logoutButton.classList.toggle("hidden", !authenticated);
@@ -143,13 +541,13 @@ function setAuthenticated(authenticated, adminEnabled = state.adminEnabled) {
     el.adminConsole.classList.toggle("hidden", !authenticated);
 
     if (!adminEnabled) {
-        el.authStatus.textContent = "Admin disabled";
+        setTranslatedText(el.authStatus, "Admin disabled");
         el.authStatus.className = "auth-badge auth-disabled";
     } else if (authenticated) {
-        el.authStatus.textContent = "Logged in";
+        setTranslatedText(el.authStatus, "Logged in");
         el.authStatus.className = "auth-badge auth-ok";
     } else {
-        el.authStatus.textContent = "Not logged in";
+        setTranslatedText(el.authStatus, "Not logged in");
         el.authStatus.className = "auth-badge auth-pending";
     }
 }
@@ -158,7 +556,7 @@ function switchSection(sectionName) {
     if (
         state.activeSection === "runtime-config"
         && sectionName !== "runtime-config"
-        && !confirmDiscardRuntimeChanges("You have unsaved runtime config changes. Leave this section without saving?")
+        && !confirmDiscardRuntimeChanges(t("You have unsaved runtime config changes. Leave this section without saving?"))
     ) {
         return;
     }
@@ -193,10 +591,10 @@ async function api(path, options = {}) {
 
     if (response.status === 401) {
         setAuthenticated(false, true);
-        throw new Error("Not logged in or session expired.");
+        throw new Error(t("Not logged in or session expired."));
     }
     if (!response.ok) {
-        throw new Error(data.detail || `Request failed with HTTP ${response.status}`);
+        throw new Error(data.detail || t("Request failed with HTTP {status}", { status: response.status }));
     }
     return data;
 }
@@ -205,11 +603,11 @@ function parseRuntimeConfigText() {
     try {
         const parsed = JSON.parse(el.runtimeConfigText.value);
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            throw new Error("Runtime config must be a JSON object.");
+            throw new Error(t("Runtime config must be a JSON object."));
         }
         return parsed;
     } catch (error) {
-        throw new Error(`Invalid JSON: ${error.message}`);
+        throw new Error(`${t("Invalid JSON")}: ${error.message}`);
     }
 }
 
@@ -220,7 +618,13 @@ function renderJson(element, data) {
 function appendLabeledRow(container, label, value) {
     const row = document.createElement("p");
     const labelElement = document.createElement("strong");
-    labelElement.textContent = `${label}:`;
+    if (translations.zh[label]) {
+        labelElement.dataset.i18n = label;
+        labelElement.dataset.i18nSuffix = ":";
+        labelElement.textContent = `${t(label)}:`;
+    } else {
+        labelElement.textContent = `${label}:`;
+    }
     row.append(labelElement, " ");
     if (value && typeof value === "object" && typeof value.appendChild === "function") {
         row.appendChild(value);
@@ -326,7 +730,7 @@ async function login(event) {
         });
         el.password.value = "";
         setAuthenticated(true, true);
-        setMessage(el.globalMessage, "Logged in.", "success");
+        setTranslatedMessage(el.globalMessage, "Logged in.", "success");
         await loadAdminData();
     } catch (error) {
         setMessage(el.loginMessage, error.message, "error");
@@ -340,24 +744,24 @@ async function logout() {
         // The local UI should still return to a logged-out state.
     }
     setAuthenticated(false, true);
-    setMessage(el.globalMessage, "Logged out.", "success");
+    setTranslatedMessage(el.globalMessage, "Logged out.", "success");
 }
 
 async function loadRuntimeConfig() {
-    if (!confirmDiscardRuntimeChanges("Reload runtime config and discard unsaved changes?")) {
+    if (!confirmDiscardRuntimeChanges(t("Reload runtime config and discard unsaved changes?"))) {
         return;
     }
     setRuntimeActionsDisabled(true);
-    setMessage(el.runtimeMessage, "Loading runtime config...");
+    setTranslatedMessage(el.runtimeMessage, "Loading runtime config...");
     try {
         const data = await api("/runtime-config");
         el.runtimeSource.textContent = data.source;
-        el.runtimeExists.textContent = String(data.exists);
+        setTranslatedText(el.runtimeExists, data.exists ? "exists" : "missing");
         el.runtimeConfigText.value = JSON.stringify(data.config, null, 2);
         loadRuntimeConfigForm(data.config);
         markRuntimeConfigClean(data.config);
         el.runtimeResult.textContent = "";
-        setMessage(el.runtimeMessage, "Runtime config loaded.", "success");
+        setTranslatedMessage(el.runtimeMessage, "Runtime config loaded.", "success");
     } catch (error) {
         setMessage(el.runtimeMessage, error.message, "error");
     } finally {
@@ -470,7 +874,7 @@ function switchToFormMode() {
         el.runtimeJsonModeButton.classList.remove("active");
         updateRuntimeDirtyState();
     } catch (error) {
-        setMessage(el.runtimeMessage, `Cannot switch to form mode: ${error.message}`, "error");
+        setTranslatedMessage(el.runtimeMessage, "Cannot switch to form mode: {message}", "error", { message: error.message });
     }
 }
 
@@ -487,7 +891,7 @@ function switchToJsonMode() {
 
 async function validateRuntimeConfig() {
     setRuntimeActionsDisabled(true);
-    setMessage(el.runtimeMessage, "Validating runtime config...");
+    setTranslatedMessage(el.runtimeMessage, "Validating runtime config...");
     el.runtimeResult.textContent = "";
     try {
         const config = getRuntimeEditorConfig();
@@ -496,7 +900,7 @@ async function validateRuntimeConfig() {
             body: JSON.stringify({ config }),
         });
         renderJson(el.runtimeResult, result);
-        setMessage(el.runtimeMessage, "Runtime config is valid.", "success");
+        setTranslatedMessage(el.runtimeMessage, "Runtime config is valid.", "success");
     } catch (error) {
         setMessage(el.runtimeMessage, error.message, "error");
     } finally {
@@ -506,7 +910,7 @@ async function validateRuntimeConfig() {
 
 async function saveRuntimeConfig() {
     setRuntimeActionsDisabled(true);
-    setMessage(el.runtimeMessage, "Saving runtime config...");
+    setTranslatedMessage(el.runtimeMessage, "Saving runtime config...");
     el.runtimeResult.textContent = "";
     try {
         const config = getRuntimeEditorConfig();
@@ -518,7 +922,7 @@ async function saveRuntimeConfig() {
         loadRuntimeConfigForm(result.config);
         markRuntimeConfigClean(result.config);
         renderJson(el.runtimeResult, result);
-        setMessage(el.runtimeMessage, "Runtime config saved.", "success");
+        setTranslatedMessage(el.runtimeMessage, "Runtime config saved.", "success");
     } catch (error) {
         setMessage(el.runtimeMessage, error.message, "error");
     } finally {
@@ -526,10 +930,10 @@ async function saveRuntimeConfig() {
     }
 }
 
-function renderPolicyList(title, items) {
+function renderPolicyList(titleKey, items) {
     const section = document.createElement("section");
     const heading = document.createElement("h3");
-    heading.textContent = title;
+    setTranslatedText(heading, titleKey);
     section.appendChild(heading);
     const list = document.createElement("ul");
     (items || []).forEach((item) => {
@@ -557,7 +961,7 @@ async function loadRestartPolicy() {
 
 async function testLlm() {
     setLlmTestActionsDisabled(true);
-    setMessage(el.llmMessageOutput, "Testing LLM...");
+    setTranslatedMessage(el.llmMessageOutput, "Testing LLM...");
     el.llmResult.textContent = "";
     try {
         const model = el.llmModel.value.trim();
@@ -571,7 +975,7 @@ async function testLlm() {
             }),
         });
         renderJson(el.llmResult, result);
-        setMessage(
+        setTranslatedMessage(
             el.llmMessageOutput,
             result.ok ? "LLM test completed." : "LLM test returned an error.",
             result.ok ? "success" : "error",
@@ -583,22 +987,27 @@ async function testLlm() {
     }
 }
 
+function renderPromptList() {
+    el.promptList.innerHTML = "";
+    state.prompts.forEach((prompt) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        const badge = prompt.effective_source === "override" ? ` [${t("override")}]` : "";
+        button.textContent = `${prompt.filename}${badge}`;
+        button.classList.toggle("active", prompt.filename === state.selectedPrompt);
+        button.classList.toggle("has-override", prompt.effective_source === "override");
+        button.addEventListener("click", () => loadPrompt(prompt.filename));
+        el.promptList.appendChild(button);
+    });
+}
+
 async function loadPromptList() {
-    setMessage(el.promptListMessage, "Loading prompts...");
+    setTranslatedMessage(el.promptListMessage, "Loading prompts...");
     try {
         const data = await api("/prompts");
-        el.promptList.innerHTML = "";
-        data.prompts.forEach((prompt) => {
-            const button = document.createElement("button");
-            button.type = "button";
-            const badge = prompt.effective_source === "override" ? " [override]" : "";
-            button.textContent = `${prompt.filename}${badge}`;
-            button.classList.toggle("active", prompt.filename === state.selectedPrompt);
-            button.classList.toggle("has-override", prompt.effective_source === "override");
-            button.addEventListener("click", () => loadPrompt(prompt.filename));
-            el.promptList.appendChild(button);
-        });
-        setMessage(el.promptListMessage, "Prompts loaded.", "success");
+        state.prompts = Array.isArray(data.prompts) ? data.prompts : [];
+        renderPromptList();
+        setTranslatedMessage(el.promptListMessage, "Prompts loaded.", "success");
     } catch (error) {
         setMessage(el.promptListMessage, error.message, "error");
     }
@@ -606,10 +1015,10 @@ async function loadPromptList() {
 
 async function loadPrompt(filename) {
     if (state.hasUnsavedPromptChanges) {
-        const confirmed = window.confirm("You have unsaved changes. Discard them and switch to another prompt?");
+        const confirmed = window.confirm(t("You have unsaved changes. Discard them and switch to another prompt?"));
         if (!confirmed) return;
     }
-    setMessage(el.promptMessage, "Loading prompt...");
+    setTranslatedMessage(el.promptMessage, "Loading prompt...");
     try {
         const data = await api(`/prompts/${encodeURIComponent(filename)}`);
         state.selectedPrompt = filename;
@@ -624,7 +1033,7 @@ async function loadPrompt(filename) {
         state.selectedPromptHasOverride = data.override.exists;
         updatePromptButtons(data.override.exists);
         await loadPromptList();
-        setMessage(el.promptMessage, "Prompt loaded.", "success");
+        setTranslatedMessage(el.promptMessage, "Prompt loaded.", "success");
     } catch (error) {
         setMessage(el.promptMessage, error.message, "error");
     }
@@ -643,10 +1052,13 @@ function updatePromptButtons(hasOverride = state.selectedPromptHasOverride) {
 
 function validatePromptContent(content) {
     if (!content || !content.trim()) {
-        return "Prompt content cannot be empty or whitespace-only.";
+        return { key: "Prompt content cannot be empty or whitespace-only." };
     }
     if (content.length > MAX_PROMPT_LENGTH) {
-        return `Prompt content exceeds maximum length of ${MAX_PROMPT_LENGTH.toLocaleString()} characters.`;
+        return {
+            key: "Prompt content exceeds maximum length of {count} characters.",
+            replacements: { count: MAX_PROMPT_LENGTH.toLocaleString() },
+        };
     }
     return null;
 }
@@ -656,7 +1068,7 @@ async function savePromptOverride() {
     const content = el.promptOverride.value;
     const validationError = validatePromptContent(content);
     if (validationError) {
-        setMessage(el.promptMessage, validationError, "error");
+        setTranslatedMessage(el.promptMessage, validationError.key, "error", validationError.replacements || {});
         return;
     }
     el.savePromptButton.disabled = true;
@@ -666,7 +1078,7 @@ async function savePromptOverride() {
             method: "PUT",
             body: JSON.stringify({ content: el.promptOverride.value }),
         });
-        setMessage(el.promptMessage, "Prompt override saved.", "success");
+        setTranslatedMessage(el.promptMessage, "Prompt override saved.", "success");
         await loadPrompt(state.selectedPrompt);
     } catch (error) {
         setMessage(el.promptMessage, error.message, "error");
@@ -677,7 +1089,9 @@ async function savePromptOverride() {
 async function resetPromptOverride() {
     if (!state.selectedPrompt) return;
     const confirmed = window.confirm(
-        `Reset "${state.selectedPrompt}" to default? This will delete the override and cannot be undone.`
+        t("Reset \"{filename}\" to default? This will delete the override and cannot be undone.", {
+            filename: state.selectedPrompt,
+        })
     );
     if (!confirmed) return;
     el.resetPromptButton.disabled = true;
@@ -687,7 +1101,7 @@ async function resetPromptOverride() {
         await api(`/prompts/${encodeURIComponent(state.selectedPrompt)}/override`, {
             method: "DELETE",
         });
-        setMessage(el.promptMessage, "Prompt reset to default.", "success");
+        setTranslatedMessage(el.promptMessage, "Prompt reset to default.", "success");
         await loadPrompt(state.selectedPrompt);
     } catch (error) {
         setMessage(el.promptMessage, error.message, "error");
@@ -698,7 +1112,9 @@ async function resetPromptOverride() {
 async function deletePromptOverride() {
     if (!state.selectedPrompt) return;
     const confirmed = window.confirm(
-        `Delete override for "${state.selectedPrompt}"? This will restore the default prompt and cannot be undone.`
+        t("Delete override for \"{filename}\"? This will restore the default prompt and cannot be undone.", {
+            filename: state.selectedPrompt,
+        })
     );
     if (!confirmed) return;
     el.deletePromptButton.disabled = true;
@@ -708,7 +1124,7 @@ async function deletePromptOverride() {
         await api(`/prompts/${encodeURIComponent(state.selectedPrompt)}/override`, {
             method: "DELETE",
         });
-        setMessage(el.promptMessage, "Prompt override deleted.", "success");
+        setTranslatedMessage(el.promptMessage, "Prompt override deleted.", "success");
         await loadPrompt(state.selectedPrompt);
     } catch (error) {
         setMessage(el.promptMessage, error.message, "error");
@@ -724,29 +1140,29 @@ async function loadAdminData() {
 async function loadDashboard() {
     try {
         const llmData = await api("/llm-config");
-        el.dashLlmStatus.textContent = llmData.api_key_configured ? "✓ Configured" : "⚠ Not configured";
+        setTranslatedStatus(el.dashLlmStatus, llmData.api_key_configured ? "✓" : "⚠", llmData.api_key_configured ? "Configured" : "Not configured");
         el.dashLlmStatus.className = llmData.api_key_configured ? "card-status status-ok" : "card-status status-warning";
         renderDetailRows(el.dashLlmDetails, [
-            ["Main", llmData.main_model || "(not set)"],
-            ["Cheat Check", llmData.cheat_check_model || "(not set)"],
+            ["Main", llmData.main_model || createTranslatedValue("(not set)")],
+            ["Cheat Check", llmData.cheat_check_model || createTranslatedValue("(not set)")],
             ["Source", llmData.source],
         ]);
     } catch (error) {
-        el.dashLlmStatus.textContent = "✗ Error";
+        setTranslatedStatus(el.dashLlmStatus, "✗", "Error");
         el.dashLlmStatus.className = "card-status status-error";
         el.dashLlmDetails.textContent = error.message;
     }
 
     try {
         const runtimeData = await api("/runtime-config");
-        el.dashRuntimeStatus.textContent = runtimeData.exists ? "✓ Available" : "⚠ Missing";
+        setTranslatedStatus(el.dashRuntimeStatus, runtimeData.exists ? "✓" : "⚠", runtimeData.exists ? "Available" : "Missing");
         el.dashRuntimeStatus.className = runtimeData.exists ? "card-status status-ok" : "card-status status-warning";
         renderDetailRows(el.dashRuntimeDetails, [
             ["Source", runtimeData.source],
-            ["Exists", runtimeData.exists],
+            ["Exists", createTranslatedValue(runtimeData.exists ? "exists" : "missing")],
         ]);
     } catch (error) {
-        el.dashRuntimeStatus.textContent = "✗ Error";
+        setTranslatedStatus(el.dashRuntimeStatus, "✗", "Error");
         el.dashRuntimeStatus.className = "card-status status-error";
         el.dashRuntimeDetails.textContent = error.message;
     }
@@ -756,11 +1172,11 @@ async function loadDashboard() {
         const total = promptsData.prompts.length;
         const overrides = promptsData.prompts.filter(p => p.effective_source === "override").length;
         if (total === 0) {
-            el.dashPromptsStatus.textContent = "⚠ No prompts found";
+            setTranslatedStatus(el.dashPromptsStatus, "⚠", "No prompts found");
             el.dashPromptsStatus.className = "card-status status-warning";
-            el.dashPromptsDetails.textContent = "Check installation or prompts directory.";
+            setTranslatedText(el.dashPromptsDetails, "Check installation or prompts directory.");
         } else {
-            el.dashPromptsStatus.textContent = `${total} ${total === 1 ? 'prompt' : 'prompts'}`;
+            setTranslatedText(el.dashPromptsStatus, total === 1 ? "{count} prompt" : "{count} prompts", { count: total });
             el.dashPromptsStatus.className = "card-status status-ok";
             renderDetailRows(el.dashPromptsDetails, [
                 ["Total", total],
@@ -768,7 +1184,7 @@ async function loadDashboard() {
             ]);
         }
     } catch (error) {
-        el.dashPromptsStatus.textContent = "✗ Error";
+        setTranslatedStatus(el.dashPromptsStatus, "✗", "Error");
         el.dashPromptsStatus.className = "card-status status-error";
         el.dashPromptsDetails.textContent = error.message;
     }
@@ -779,7 +1195,7 @@ async function loadDashboard() {
             const playerCount = playersData.summary.player_count;
             const sessionCount = playersData.summary.session_count;
             const active24h = playersData.summary.active_recent_24h;
-            el.dashPlayersStatus.textContent = `${playerCount} ${playerCount === 1 ? 'player' : 'players'}`;
+            setTranslatedText(el.dashPlayersStatus, playerCount === 1 ? "{count} player" : "{count} players", { count: playerCount });
             el.dashPlayersStatus.className = "card-status status-ok";
             renderDetailRows(el.dashPlayersDetails, [
                 ["Sessions", sessionCount],
@@ -787,7 +1203,7 @@ async function loadDashboard() {
                 ["Active 7d", playersData.summary.active_recent_7d],
             ]);
         } catch (error) {
-            el.dashPlayersStatus.textContent = "✗ Error";
+            setTranslatedStatus(el.dashPlayersStatus, "✗", "Error");
             el.dashPlayersStatus.className = "card-status status-error";
             el.dashPlayersDetails.textContent = error.message;
         }
@@ -799,15 +1215,15 @@ async function loadDashboard() {
             const dbOk = systemData.database.connected;
             const envOk = systemData.env.env_file_exists;
             const hasWarnings = systemData.warnings.length > 0;
-            el.dashSystemStatus.textContent = dbOk && envOk && !hasWarnings ? "✓ Healthy" : "⚠ Check status";
+            setTranslatedStatus(el.dashSystemStatus, dbOk && envOk && !hasWarnings ? "✓" : "⚠", dbOk && envOk && !hasWarnings ? "Healthy" : "Check status");
             el.dashSystemStatus.className = dbOk && envOk && !hasWarnings ? "card-status status-ok" : "card-status status-warning";
             renderDetailRows(el.dashSystemDetails, [
-                ["Database", dbOk ? "connected" : "not connected"],
-                ["Env File", envOk ? "exists" : "missing"],
+                ["Database", createTranslatedValue(dbOk ? "connected" : "not connected")],
+                ["Env File", createTranslatedValue(envOk ? "exists" : "missing")],
                 ["Sessions", systemData.counts.sessions],
             ]);
         } catch (error) {
-            el.dashSystemStatus.textContent = "✗ Error";
+            setTranslatedStatus(el.dashSystemStatus, "✗", "Error");
             el.dashSystemStatus.className = "card-status status-error";
             el.dashSystemDetails.textContent = error.message;
         }
@@ -816,11 +1232,11 @@ async function loadDashboard() {
 
 async function loadLlmConfig() {
     setLlmConfigActionsDisabled(true);
-    setMessage(el.llmConfigMessage, "Loading LLM config...");
+    setTranslatedMessage(el.llmConfigMessage, "Loading LLM config...");
     try {
         const data = await api("/llm-config");
         _applyLlmConfigToForm(data);
-        setMessage(el.llmConfigMessage, `Loaded (source: ${data.source}).`, "success");
+        setTranslatedMessage(el.llmConfigMessage, "Loaded (source: {source}).", "success", { source: data.source });
     } catch (error) {
         setMessage(el.llmConfigMessage, error.message, "error");
     } finally {
@@ -836,13 +1252,15 @@ function _applyLlmConfigToForm(data) {
     el.llmConfigCheatModel.value = data.cheat_check_model || "";
 
     if (data.api_key_configured && data.api_key_hint) {
-        el.llmConfigApiKey.placeholder = `Configured — ends in …${data.api_key_hint}. Leave blank to keep.`;
+        setTranslatedPlaceholder(el.llmConfigApiKey, "Configured — ends in …{hint}. Leave blank to keep.", { hint: data.api_key_hint });
     } else {
-        el.llmConfigApiKey.placeholder = "Not configured. Enter API key to set.";
+        setTranslatedPlaceholder(el.llmConfigApiKey, "Not configured. Enter API key to set.");
     }
-    el.llmConfigKeyHint.textContent = data.api_key_configured
-        ? `API key configured, last 4 chars: ${data.api_key_hint || "(unknown)"}`
-        : "No API key configured.";
+    if (data.api_key_configured) {
+        setTranslatedText(el.llmConfigKeyHint, "API key configured, last 4 chars: {hint}", { hint: data.api_key_hint || "(unknown)" });
+    } else {
+        setTranslatedText(el.llmConfigKeyHint, "No API key configured.");
+    }
     el.llmConfigResult.textContent = "";
     el.llmConfigResult.classList.add("hidden");
 }
@@ -850,7 +1268,7 @@ function _applyLlmConfigToForm(data) {
 async function saveLlmConfig() {
     setMessage(el.llmConfigMessage, "");
     const clearKey = el.llmConfigClearKey.checked;
-    if (clearKey && !confirm("Clear the stored API key? The key cannot be recovered.")) {
+    if (clearKey && !confirm(t("Clear the stored API key? The key cannot be recovered."))) {
         return;
     }
     setLlmConfigActionsDisabled(true);
@@ -869,7 +1287,7 @@ async function saveLlmConfig() {
         _applyLlmConfigToForm(result.config);
         el.llmConfigResult.textContent = JSON.stringify(result.config, null, 2);
         el.llmConfigResult.classList.remove("hidden");
-        setMessage(el.llmConfigMessage, "LLM config saved.", "success");
+        setTranslatedMessage(el.llmConfigMessage, "LLM config saved.", "success");
     } catch (error) {
         setMessage(el.llmConfigMessage, error.message, "error");
     } finally {
@@ -879,7 +1297,7 @@ async function saveLlmConfig() {
 
 async function testLlmFromConfig() {
     setLlmConfigActionsDisabled(true);
-    setMessage(el.llmConfigMessage, "Testing LLM connection...");
+    setTranslatedMessage(el.llmConfigMessage, "Testing LLM connection...");
     el.llmConfigResult.textContent = "";
     el.llmConfigResult.classList.add("hidden");
     try {
@@ -889,7 +1307,7 @@ async function testLlmFromConfig() {
         });
         el.llmConfigResult.textContent = JSON.stringify(result, null, 2);
         el.llmConfigResult.classList.remove("hidden");
-        setMessage(
+        setTranslatedMessage(
             el.llmConfigMessage,
             result.ok ? "LLM connection OK." : "LLM test returned an error.",
             result.ok ? "success" : "error",
@@ -903,12 +1321,12 @@ async function testLlmFromConfig() {
 
 async function loadSystemStatus() {
     if (el.systemRefreshButton) el.systemRefreshButton.disabled = true;
-    setMessage(el.systemMessage, "Loading system status...");
+    setTranslatedMessage(el.systemMessage, "Loading system status...");
     try {
         const data = await api("/system/status");
 
         renderDetailRows(el.systemApp, [
-            ["Admin Enabled", data.app.admin_enabled ? "Yes" : "No"],
+            ["Admin Enabled", createTranslatedValue(data.app.admin_enabled ? "Yes" : "No")],
             ["Environment", data.app.environment],
             ["Python", data.app.python_version],
             ["Platform", data.app.platform],
@@ -951,7 +1369,7 @@ async function loadSystemStatus() {
 
         renderWarnings(el.systemWarnings, el.systemWarningsPanel, data.warnings || []);
         
-        setMessage(el.systemMessage, "System status loaded.", "success");
+        setTranslatedMessage(el.systemMessage, "System status loaded.", "success");
     } catch (error) {
         setMessage(el.systemMessage, error.message, "error");
     } finally {
@@ -963,10 +1381,10 @@ function createStatusBadge(value) {
     const badge = document.createElement("span");
     if (value === true) {
         badge.className = "status-badge status-ok";
-        badge.textContent = "OK";
+        setTranslatedText(badge, "OK");
     } else if (value === false) {
         badge.className = "status-badge status-error";
-        badge.textContent = "No";
+        setTranslatedText(badge, "No");
     } else {
         badge.className = "status-badge status-unknown";
         badge.textContent = "?";
@@ -975,9 +1393,9 @@ function createStatusBadge(value) {
 }
 
 function formatPlayerActivity(lastActivity) {
-    if (!lastActivity) return "N/A";
+    if (!lastActivity) return t("N/A");
     const date = new Date(lastActivity);
-    if (Number.isNaN(date.getTime())) return "N/A";
+    if (Number.isNaN(date.getTime())) return t("N/A");
     return date.toLocaleString();
 }
 
@@ -1017,7 +1435,7 @@ function createLabeledText(label, value, className) {
     if (className) element.className = className;
 
     const labelElement = document.createElement("strong");
-    labelElement.textContent = `${label}:`;
+    labelElement.textContent = `${t(label)}:`;
     element.append(labelElement, ` ${value}`);
     return element;
 }
@@ -1025,7 +1443,7 @@ function createLabeledText(label, value, className) {
 function createMetaItem(label, value) {
     const item = document.createElement("span");
     const labelElement = document.createElement("strong");
-    labelElement.textContent = `${label}:`;
+    labelElement.textContent = `${t(label)}:`;
     item.append(labelElement, ` ${value}`);
     return item;
 }
@@ -1033,11 +1451,17 @@ function createMetaItem(label, value) {
 function updatePlayersFilterCount(visibleCount, totalCount) {
     if (!el.playersFilterCount) return;
     if (totalCount === 0) {
-        el.playersFilterCount.textContent = "No players loaded";
+        setTranslatedText(el.playersFilterCount, "No players loaded");
     } else if (visibleCount === totalCount) {
-        el.playersFilterCount.textContent = `Showing all ${totalCount} ${totalCount === 1 ? "player" : "players"}`;
+        setTranslatedText(el.playersFilterCount, "Showing all {count} {noun}", {
+            count: totalCount,
+            noun: t(totalCount === 1 ? "player" : "players"),
+        });
     } else {
-        el.playersFilterCount.textContent = `Showing ${visibleCount} of ${totalCount} players`;
+        setTranslatedText(el.playersFilterCount, "Showing {visible} of {total} players", {
+            visible: visibleCount,
+            total: totalCount,
+        });
     }
 }
 
@@ -1045,14 +1469,14 @@ function renderPlayersList(players, totalCount) {
     el.playersList.textContent = "";
 
     if (totalCount === 0) {
-        el.playersEmpty.textContent = "No players found";
+        setTranslatedText(el.playersEmpty, "No players found");
         el.playersEmpty.classList.remove("hidden");
         updatePlayersFilterCount(0, 0);
         return;
     }
 
     if (players.length === 0) {
-        el.playersEmpty.textContent = "No players match the current filters";
+        setTranslatedText(el.playersEmpty, "No players match the current filters");
         el.playersEmpty.classList.remove("hidden");
         updatePlayersFilterCount(0, totalCount);
         return;
@@ -1063,7 +1487,7 @@ function renderPlayersList(players, totalCount) {
         const card = document.createElement("div");
         card.className = "player-card";
 
-        card.appendChild(createLabeledText("ID", player.player_id || "N/A", "player-id"));
+        card.appendChild(createLabeledText("ID", player.player_id || t("N/A"), "player-id"));
 
         const meta = document.createElement("div");
         meta.className = "player-meta";
@@ -1082,7 +1506,7 @@ function renderPlayersList(players, totalCount) {
         sources.className = "player-sources";
         sources.textContent = (player.data_sources || []).length > 0
             ? player.data_sources.join(", ")
-            : "No metadata sources";
+            : t("No metadata sources");
         card.appendChild(sources);
 
         el.playersList.appendChild(card);
@@ -1123,7 +1547,7 @@ function renderWarnings(listElement, panelElement, warnings) {
 }
 
 async function loadPlayers() {
-    setMessage(el.playersMessage, "Loading players...");
+    setTranslatedMessage(el.playersMessage, "Loading players...");
     if (el.playersRefreshButton) el.playersRefreshButton.disabled = true;
     try {
         const data = await api("/players");
@@ -1137,7 +1561,7 @@ async function loadPlayers() {
         applyPlayersFilters();
         renderWarnings(el.playersWarnings, el.playersWarningsPanel, data.warnings || []);
         
-        setMessage(el.playersMessage, "Players loaded.", "success");
+        setTranslatedMessage(el.playersMessage, "Players loaded.", "success");
     } catch (error) {
         setMessage(el.playersMessage, error.message, "error");
     } finally {
@@ -1191,9 +1615,9 @@ if (el.playersClearFiltersButton) {
 if (el.dashboardRefreshButton) {
     el.dashboardRefreshButton.addEventListener("click", async () => {
         el.dashboardRefreshButton.disabled = true;
-        el.dashboardRefreshButton.textContent = "Refreshing...";
+        setTranslatedText(el.dashboardRefreshButton, "Refreshing...");
         await loadDashboard();
-        el.dashboardRefreshButton.textContent = "Refresh Dashboard";
+        setTranslatedText(el.dashboardRefreshButton, "Refresh Dashboard");
         el.dashboardRefreshButton.disabled = false;
     });
 }
@@ -1203,5 +1627,13 @@ document.querySelectorAll(".nav-item").forEach(btn => {
 });
 
 window.addEventListener("beforeunload", warnBeforeUnload);
+
+initializeStaticTranslations();
+setLanguage(loadStoredLanguage());
+if (el.languageToggle) {
+    el.languageToggle.addEventListener("click", () => {
+        setLanguage(state.language === "zh" ? "en" : "zh");
+    });
+}
 
 checkStatus();

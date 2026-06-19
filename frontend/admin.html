@@ -16,6 +16,7 @@
                 <p class="header-subtitle">Management Console</p>
             </div>
             <div class="header-actions">
+                <button id="language-toggle" class="secondary language-toggle" type="button">English</button>
                 <span id="auth-status" class="auth-badge">Checking...</span>
                 <button id="logout-button" class="secondary hidden" type="button">Logout</button>
             </div>
@@ -149,7 +150,7 @@
                             <input id="llm-config-api-key" type="password" autocomplete="new-password" placeholder="Leave blank to keep existing key">
 
                             <span></span>
-                            <label class="inline-check"><input id="llm-config-clear-key" type="checkbox"> Clear API Key (requires confirmation)</label>
+                            <label class="inline-check"><input id="llm-config-clear-key" type="checkbox"> <span>Clear API Key (requires confirmation)</span></label>
 
                             <label for="llm-config-main-model">Main Model</label>
                             <input id="llm-config-main-model" type="text" placeholder="e.g. gpt-4o">

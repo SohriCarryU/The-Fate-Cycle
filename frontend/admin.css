@@ -46,6 +46,10 @@ body {
     gap: 0.75rem;
 }
 
+.language-toggle {
+    white-space: nowrap;
+}
+
 .auth-badge {
     padding: 0.4rem 0.75rem;
     border-radius: 6px;
