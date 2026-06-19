@@ -102,21 +102,47 @@ async def _try_acquire_global_image_quota(count: int = 1) -> tuple[bool, float |
         return True, None
 
 # --- Client Initialization ---
-client: AsyncOpenAI | None = None
-if AsyncOpenAI is None:
-    logger.warning("未安装 openai 依赖，OpenAI 客户端不可用。")
-elif settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "your_openai_api_key_here":
+
+
+def _is_configured_api_key(api_key: str | None) -> bool:
+    return bool(api_key and api_key != "your_openai_api_key_here")
+
+
+def rebuild_openai_client() -> bool:
+    """Rebuild the shared main LLM client from the effective LLM config."""
+    global client
+    if AsyncOpenAI is None:
+        client = None
+        logger.warning("openai dependency is not installed; main LLM client is disabled.")
+        return False
+
+    llm_config = llm_secret_store.get_effective_llm_config()
+    api_key = llm_config.get("api_key")
+    if not _is_configured_api_key(api_key):
+        client = None
+        logger.warning("OpenAI API key is not configured; main LLM client is disabled.")
+        return False
+
     try:
         client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.OPENAI_BASE_URL,
+            api_key=api_key,
+            base_url=llm_config.get("base_url") or settings.OPENAI_BASE_URL,
         )
-        logger.info("OpenAI 客户端初始化成功。")
+        logger.info("OpenAI client rebuilt from %s configuration.", llm_config.get("source", "effective"))
+        return True
     except Exception as e:
-        logger.error(f"初始化 OpenAI 客户端失败: {e}")
         client = None
-else:
-    logger.warning("OPENAI_API_KEY 未设置或为占位符，OpenAI 客户端未初始化。")
+        logger.error("Failed to rebuild OpenAI client: %s", e)
+        return False
+
+
+def reload_openai_client() -> bool:
+    """Hot-reload the shared main LLM client after admin config changes."""
+    return rebuild_openai_client()
+
+
+client: AsyncOpenAI | None = None
+rebuild_openai_client()
 
 # --- Image Generation Client ---
 image_client: AsyncOpenAI | None = None
@@ -126,7 +152,7 @@ elif settings.IMAGE_GEN_MODEL:
     try:
         image_api_key = settings.IMAGE_GEN_API_KEY or settings.OPENAI_API_KEY
         image_base_url = settings.IMAGE_GEN_BASE_URL or settings.OPENAI_BASE_URL
-        if image_api_key and image_api_key != "your_openai_api_key_here":
+        if _is_configured_api_key(image_api_key):
             image_client = AsyncOpenAI(
                 api_key=image_api_key,
                 base_url=image_base_url,
@@ -160,7 +186,8 @@ def _get_runtime_value(section: str, key: str):
 
 
 def _effective_openai_model(model: str | None = None) -> str:
-    return model or _get_runtime_value("llm", "openai_model") or llm_secret_store.get_effective_llm_config()["main_model"]
+    llm_config = llm_secret_store.get_effective_llm_config()
+    return model or _get_runtime_value("llm", "openai_model") or llm_config.get("main_model") or settings.OPENAI_MODEL
 
 
 def get_effective_openai_model(model: str | None = None) -> str:
@@ -168,7 +195,8 @@ def get_effective_openai_model(model: str | None = None) -> str:
 
 
 def get_effective_cheat_check_model(model: str | None = None) -> str:
-    return model or _get_runtime_value("llm", "openai_model_cheat_check") or llm_secret_store.get_effective_llm_config()["cheat_check_model"]
+    llm_config = llm_secret_store.get_effective_llm_config()
+    return model or _get_runtime_value("llm", "openai_model_cheat_check") or llm_config.get("cheat_check_model") or settings.OPENAI_MODEL_CHEAT_CHECK
 
 
 def _effective_image_model() -> str | None:

@@ -308,7 +308,8 @@ async def save_llm_config(request: Request, payload: LlmConfigRequest):
             cheat_check_model=payload.cheat_check_model,
             clear_api_key=payload.clear_api_key,
         )
-        return {"ok": True, "config": result}
+        hot_applied = openai_client.reload_openai_client()
+        return {"ok": True, "config": result, "hot_applied": hot_applied}
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

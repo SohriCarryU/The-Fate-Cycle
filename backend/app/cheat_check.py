@@ -5,7 +5,6 @@ import re
 from . import openai_client
 from . import state_manager
 from . import runtime_config
-from .config import settings
 
 # --- Logging ---
 logger = logging.getLogger(__name__)
@@ -59,9 +58,8 @@ async def run_cheat_check(player_id: str, inputs_to_check: list[str]) -> str:
 
     full_prompt = f"# 用户输入列表\n\n<user_inputs>\n{formatted_inputs}\n</user_inputs>"
     runtime = runtime_config.get_runtime_config()
-    cheat_check_model = (
+    cheat_check_model = openai_client.get_effective_cheat_check_model(
         runtime.get("llm", {}).get("openai_model_cheat_check")
-        or settings.OPENAI_MODEL_CHEAT_CHECK
     )
 
     # Single API call for the whole batch
